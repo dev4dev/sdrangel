@@ -12,26 +12,87 @@ Current version: **7.23.2**. C++17, CMake build system.
 
 CMake presets are defined in `CMakePresets.json`. The default preset targets Linux with dependencies under `/opt/install/`.
 
+### Linux (Qt5)
+
 ```bash
-# Configure (Linux, Qt5)
 cmake --preset default
-
-# Build
 cmake --build --preset default -j$(nproc)
+cmake --install build --prefix /opt/install/sdrangel  # optional
+```
 
-# Install (optional)
-cmake --install build --prefix /opt/install/sdrangel
+### Linux (Qt6)
 
-# Qt6 build
+```bash
 cmake --preset default-qt6
 cmake --build --preset default-qt6 -j$(nproc)
+```
 
-# Windows
+### macOS
+
+#### Homebrew approach (quick dev builds)
+
+```bash
+# Install core dependencies
+brew install qt boost fftw libusb pkg-config opencv ffmpeg
+
+# Configure (Qt6, Apple Silicon)
+cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+  -DENABLE_QT6=ON \
+  -DCMAKE_PREFIX_PATH="$(brew --prefix qt)" \
+  -DFLAC_INCLUDE_DIR=/opt/homebrew/include \
+  -DFLAC_LIBRARIES=/opt/homebrew/lib/libFLAC.dylib \
+  -DDEBUG_OUTPUT=ON
+
+# Build
+cmake --build build -j$(sysctl -n hw.ncpu)
+
+# Run from build tree (no install needed for testing)
+./build/sdrangel
+```
+
+**Known issue:** `FindFLAC.cmake` doesn't search `/opt/homebrew/include` (Apple Silicon path), so `FLAC_INCLUDE_DIR` and `FLAC_LIBRARIES` must be passed explicitly or the `remotetcpsink` plugin fails.
+
+#### Full build with .dmg packaging (from [wiki](https://github.com/f4exb/sdrangel/wiki/Compile-in-MacOS))
+
+Uses Qt from qt.io and builds most dependencies from source:
+
+```bash
+# Prerequisites: Xcode, Qt 6.7.3 from qt.io installed to $HOME/Qt/
+# Python deps: pip3 install numpy mako requests Cheetah3 setuptools
+export QT_DIR=$HOME/Qt/
+
+sudo mkdir -p /opt/build /opt/install && sudo chown ${USER}:staff /opt/build /opt/install
+
+cmake -B build -Wno-dev -DCMAKE_BUILD_TYPE=Release \
+  -DENABLE_QT6=ON -DBUNDLE=ON -DRX_SAMPLE_24BIT=ON \
+  -DENABLE_EXTERNAL_LIBRARIES=ON \
+  -DCMAKE_PREFIX_PATH="$QT_DIR/6.7.3/macos" \
+  -DCMAKE_INSTALL_PREFIX=/opt/install/sdrangel \
+  -DDEBUG_OUTPUT=ON
+
+cmake --build build -j$(sysctl -n hw.ncpu) --target package  # produces .dmg
+```
+
+Key flags: `-DBUNDLE=ON` creates .dmg, `-DENABLE_EXTERNAL_LIBRARIES=ON` auto-builds Boost/FFTW3/libusb/codec2/cm256cc/etc. from source.
+
+#### Build a single plugin (faster iteration)
+
+```bash
+cmake --build build --target modatv -j$(sysctl -n hw.ncpu)     # GUI plugin
+cmake --build build --target modatvsrv -j$(sysctl -n hw.ncpu)  # server plugin
+```
+
+Plugins are built to `build/lib/plugins/` (GUI) and `build/lib/pluginssrv/` (server).
+
+### Windows
+
+```bash
 cmake --preset default-windows
 cmake --build --preset default-windows
 ```
 
-Key CMake options:
+### Key CMake options
+
 - `BUILD_GUI` / `BUILD_SERVER` — toggle GUI/server flavors
 - `RX_SAMPLE_24BIT` — 24-bit internal DSP (default ON; affects `SDR_RX_SAMP_SZ` and `FixReal` type in `sdrbase/dsp/dsptypes.h`)
 - `ENABLE_QT6` — build with Qt6 instead of Qt5
@@ -39,6 +100,16 @@ Key CMake options:
 - `SANITIZE_ADDRESS` / `SANITIZE_MEMORY` — address/memory sanitizers
 
 External dependencies are pointed to via `CMakePresets.json` cache variables (`AIRSPY_DIR`, `LIMESUITE_DIR`, `UHD_DIR`, etc.). Use the `sdrangel-docker` project for reproducible dependency environments.
+
+### Dependencies
+
+**Required:** Qt5 (≥5.15) or Qt6, Boost, FFTW3 (float), libusb, OpenGL, pkg-config
+
+**Required for ATVMod plugin:** OpenCV (core, highgui, imgproc, imgcodecs, videoio)
+
+**Optional (enables specific plugins):** FFmpeg, Codec2, CM256cc, libdsdcc+mbelib, SerialDV, SGP4, AptDec, LibDAB+ZLIB+FAAD, LibSigMF, HIDAPI, GGMorse, RNnoise, LibInmarsatC
+
+**Optional hardware drivers:** LibAIRSPY, LibAIRSPYHF, LibBLADERF (≥2.0), LibHACKRF, LimeSuite, LibIIO (PlutoSDR), LibRTLSDR, SoapySDR, UHD (USRP), SDRplay, LibXTRX, LibMiriSDR, LibPerseus
 
 ## Testing
 
