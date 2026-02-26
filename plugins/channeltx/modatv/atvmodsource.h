@@ -215,6 +215,19 @@ private:
     QString m_imageFileName;
     QString m_videoFileName;
 
+    // Colour subcarrier lookup table
+    std::vector<Complex> m_colourLUT;   //!< pre-computed subcarrier waveform (cos, sin)
+    uint32_t  m_colourLUTWidth;         //!< length of LUT in samples
+    uint32_t  m_colourLUTOffset;        //!< current position in LUT (advances per line)
+    uint32_t  m_frameCount;             //!< frame counter (tracks colour LUT period)
+    int       m_burstLeftPoints;        //!< start of burst window in samples from line start
+    int       m_burstWidthPoints;       //!< duration of burst window in samples
+    std::vector<float> m_burstWindow;   //!< raised-cosine burst envelope
+
+    // Pre-computed colour bar pixel data (7 bars x {Y,U,V})
+    struct ColourBar { float Y, U, V; };
+    static const ColourBar m_colourBars[7];
+
     // Used for standard SSB
     fftfilt* m_SSBFilter;
     Complex* m_SSBFilterBuffer;
@@ -261,6 +274,17 @@ private:
     void mixImageAndText(cv::Mat& image);
 
     MessageQueue *getMessageQueueToGUI() { return m_messageQueueToGUI; }
+
+    // ITU-R BT.601 RGB->YUV conversion (coefficients from hacktv)
+    static inline void bgrToYUV(const cv::Vec3b& bgr, float& Y, float& U, float& V)
+    {
+        float r = bgr[2] / 255.0f;
+        float g = bgr[1] / 255.0f;
+        float b = bgr[0] / 255.0f;
+        Y = 0.299f * r + 0.587f * g + 0.114f * b;
+        U = 0.493f * (b - Y);
+        V = 0.877f * (r - Y);
+    }
 
     inline LineType getLineType(ATVModSettings::ATVStd standard, int lineNumber)
     {
@@ -450,7 +474,34 @@ private:
         }
         else if (m_horizontalCount < m_pointsPerSync + m_pointsPerBP) // back porch
         {
-            sample = m_blackLevel; // black
+            if (m_settings.m_colourEnabled
+                && m_colourLUTWidth > 0
+                && m_horizontalCount >= m_burstLeftPoints
+                && m_horizontalCount <  m_burstLeftPoints + m_burstWidthPoints)
+            {
+                uint32_t lutIdx = (m_colourLUTOffset + (uint32_t)m_horizontalCount) % m_colourLUTWidth;
+                const Complex& sc = m_colourLUT[lutIdx];
+
+                int burstIndex = m_horizontalCount - m_burstLeftPoints;
+                float envelope = m_burstWindow[burstIndex];
+
+                float burstI, burstQ;
+                if (m_settings.m_colourStd == ATVModSettings::ATVColourNTSC) {
+                    burstI = -1.0f; burstQ = 0.0f;
+                } else {
+                    bool palBurstPositive = !(m_lineCount & 1);
+                    burstI = -0.70711f;
+                    burstQ =  palBurstPositive ? 0.70711f : -0.70711f;
+                }
+                float burstLvl = (m_settings.m_colourStd == ATVModSettings::ATVColourNTSC)
+                                 ? (4.0f/10.0f) : (3.0f/7.0f);
+                sample = m_blackLevel
+                       + burstLvl * m_spanLevel * envelope * (burstI * sc.real() + burstQ * sc.imag());
+            }
+            else
+            {
+                sample = m_blackLevel; // black
+            }
         }
         else if (m_horizontalCount < m_pointsPerSync + m_pointsPerBP + m_pointsPerImgLine)
         {
@@ -489,9 +540,25 @@ private:
                 }
                 else
                 {
-                	unsigned char pixv;
-                    pixv = m_image.at<unsigned char>(m_imageLine, pointIndex); // row (y), col (x)
-                    sample = (pixv / 256.0f) * m_spanLevel + m_blackLevel;
+                    const cv::Vec3b& px = m_image.at<cv::Vec3b>(m_imageLine, pointIndex);
+                    if (m_settings.m_colourEnabled && m_colourLUTWidth > 0)
+                    {
+                        float Y, U, V;
+                        bgrToYUV(px, Y, U, V);
+                        bool palVInvert = (m_settings.m_colourStd == ATVModSettings::ATVColourPAL)
+                                          && (m_lineCount & 1);
+                        float Vmod = palVInvert ? -V : V;
+                        uint32_t lutIdx = (m_colourLUTOffset + (uint32_t)m_horizontalCount) % m_colourLUTWidth;
+                        const Complex& sc = m_colourLUT[lutIdx];
+                        // TODO: Apply 1.4 MHz Gaussian LPF to U and V for proper chroma bandwidth limiting
+                        float chroma = (U * sc.imag() + Vmod * sc.real()) * m_settings.m_colourSubcarrierLevel;
+                        sample = Y * m_spanLevel + m_blackLevel + chroma * m_spanLevel;
+                    }
+                    else
+                    {
+                        float Y = 0.299f * px[2]/255.0f + 0.587f * px[1]/255.0f + 0.114f * px[0]/255.0f;
+                        sample = Y * m_spanLevel + m_blackLevel;
+                    }
                 }
                 break;
             case ATVModSettings::ATVModInputVideo:
@@ -501,9 +568,24 @@ private:
                 }
                 else
                 {
-                	unsigned char pixv;
-                    pixv = m_videoFrame.at<unsigned char>(m_imageLine, pointIndex); // row (y), col (x)
-                    sample = (pixv / 256.0f) * m_spanLevel + m_blackLevel;
+                    const cv::Vec3b& px = m_videoFrame.at<cv::Vec3b>(m_imageLine, pointIndex);
+                    if (m_settings.m_colourEnabled && m_colourLUTWidth > 0)
+                    {
+                        float Y, U, V;
+                        bgrToYUV(px, Y, U, V);
+                        bool palVInvert = (m_settings.m_colourStd == ATVModSettings::ATVColourPAL)
+                                          && (m_lineCount & 1);
+                        float Vmod = palVInvert ? -V : V;
+                        uint32_t lutIdx = (m_colourLUTOffset + (uint32_t)m_horizontalCount) % m_colourLUTWidth;
+                        const Complex& sc = m_colourLUT[lutIdx];
+                        float chroma = (U * sc.imag() + Vmod * sc.real()) * m_settings.m_colourSubcarrierLevel;
+                        sample = Y * m_spanLevel + m_blackLevel + chroma * m_spanLevel;
+                    }
+                    else
+                    {
+                        float Y = 0.299f * px[2]/255.0f + 0.587f * px[1]/255.0f + 0.114f * px[0]/255.0f;
+                        sample = Y * m_spanLevel + m_blackLevel;
+                    }
                 }
             	break;
             case ATVModSettings::ATVModInputCamera:
@@ -521,12 +603,48 @@ private:
                     }
                     else
                     {
-                        unsigned char pixv;
-                        pixv = camera.m_videoFrame.at<unsigned char>(m_imageLine, pointIndex); // row (y), col (x)
-                        sample = (pixv / 256.0f) * m_spanLevel + m_blackLevel;
+                        const cv::Vec3b& px = camera.m_videoFrame.at<cv::Vec3b>(m_imageLine, pointIndex);
+                        if (m_settings.m_colourEnabled && m_colourLUTWidth > 0)
+                        {
+                            float Y, U, V;
+                            bgrToYUV(px, Y, U, V);
+                            bool palVInvert = (m_settings.m_colourStd == ATVModSettings::ATVColourPAL)
+                                              && (m_lineCount & 1);
+                            float Vmod = palVInvert ? -V : V;
+                            uint32_t lutIdx = (m_colourLUTOffset + (uint32_t)m_horizontalCount) % m_colourLUTWidth;
+                            const Complex& sc = m_colourLUT[lutIdx];
+                            float chroma = (U * sc.imag() + Vmod * sc.real()) * m_settings.m_colourSubcarrierLevel;
+                            sample = Y * m_spanLevel + m_blackLevel + chroma * m_spanLevel;
+                        }
+                        else
+                        {
+                            float Y = 0.299f * px[2]/255.0f + 0.587f * px[1]/255.0f + 0.114f * px[0]/255.0f;
+                            sample = Y * m_spanLevel + m_blackLevel;
+                        }
                     }
                 }
                 break;
+            case ATVModSettings::ATVModInputColorBars:
+            {
+                int barIndex = (pointIndex * 7) / m_pointsPerImgLine;
+                barIndex = std::max(0, std::min(barIndex, 6));
+                const ColourBar& bar = m_colourBars[barIndex];
+                if (m_settings.m_colourEnabled && m_colourLUTWidth > 0)
+                {
+                    bool palVInvert = (m_settings.m_colourStd == ATVModSettings::ATVColourPAL)
+                                      && (m_lineCount & 1);
+                    float Vmod = palVInvert ? -bar.V : bar.V;
+                    uint32_t lutIdx = (m_colourLUTOffset + (uint32_t)m_horizontalCount) % m_colourLUTWidth;
+                    const Complex& sc = m_colourLUT[lutIdx];
+                    float chroma = (bar.U * sc.imag() + Vmod * sc.real()) * m_settings.m_colourSubcarrierLevel;
+                    sample = bar.Y * m_spanLevel + m_blackLevel + chroma * m_spanLevel;
+                }
+                else
+                {
+                    sample = bar.Y * m_spanLevel + m_blackLevel;
+                }
+                break;
+            }
             case ATVModSettings::ATVModInputUniform:
             default:
                 sample = m_spanLevel * m_settings.m_uniformLevel + m_blackLevel; // uniform line

@@ -791,6 +791,11 @@
           <string>Camera</string>
          </property>
         </item>
+        <item>
+         <property name="text">
+          <string>Color Bars</string>
+         </property>
+        </item>
        </widget>
       </item>
       <item>
@@ -903,6 +908,102 @@
       </item>
       <item>
        <spacer name="horizontalSpacer_3">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+     </layout>
+    </item>
+    <item>
+     <layout class="QHBoxLayout" name="colourLayout">
+      <item>
+       <widget class="QCheckBox" name="checkBoxColour">
+        <property name="toolTip">
+         <string>Enable PAL/NTSC colour subcarrier encoding</string>
+        </property>
+        <property name="text">
+         <string>Colour</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QComboBox" name="comboBoxColourStd">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+        <property name="toolTip">
+         <string>PAL (4.43 MHz subcarrier, alternating V) or NTSC (3.58 MHz, fixed phase)</string>
+        </property>
+        <item>
+         <property name="text">
+          <string>PAL</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>NTSC</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+      <item>
+       <widget class="Line" name="lineColour1">
+        <property name="orientation">
+         <enum>Qt::Vertical</enum>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="chromaLabel">
+        <property name="text">
+         <string>Chroma</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QSlider" name="sliderChromaLevel">
+        <property name="toolTip">
+         <string>Chrominance subcarrier amplitude (100 = full colour)</string>
+        </property>
+        <property name="minimum">
+         <number>0</number>
+        </property>
+        <property name="maximum">
+         <number>100</number>
+        </property>
+        <property name="value">
+         <number>100</number>
+        </property>
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="chromaLevelText">
+        <property name="minimumSize">
+         <size>
+          <width>30</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>100</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="horizontalSpacerColour">
         <property name="orientation">
          <enum>Qt::Horizontal</enum>
         </property>

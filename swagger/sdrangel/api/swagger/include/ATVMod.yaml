@@ -67,6 +67,16 @@ ATVModSettings:
       type: integer
     reverseAPIChannelIndex:
       type: integer
+    colourEnabled:
+      type: integer
+      description: "1 if colour encoding is enabled, 0 for monochrome"
+    colourStd:
+      type: integer
+      description: "Colour standard: 0=PAL, 1=NTSC"
+    colourSubcarrierLevel:
+      type: number
+      format: float
+      description: "Colour subcarrier amplitude relative to luminance, 0.0-1.0"
     channelMarker:
       $ref: "http://swgserver:8081/api/swagger/include/ChannelMarker.yaml#/ChannelMarker"
     rollupState:

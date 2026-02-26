@@ -664,6 +664,26 @@ void ATVModGUI::on_cameraManualFPS_valueChanged(int value)
     m_atvMod->getInputMessageQueue()->push(message);
 }
 
+void ATVModGUI::on_checkBoxColour_toggled(bool checked)
+{
+    m_settings.m_colourEnabled = checked;
+    ui->comboBoxColourStd->setEnabled(checked);
+    applySettings(QStringList("colourEnabled"));
+}
+
+void ATVModGUI::on_comboBoxColourStd_currentIndexChanged(int index)
+{
+    m_settings.m_colourStd = (ATVModSettings::ATVColourStd) index;
+    applySettings(QStringList("colourStd"));
+}
+
+void ATVModGUI::on_sliderChromaLevel_valueChanged(int value)
+{
+    ui->chromaLevelText->setText(QString("%1").arg(value));
+    m_settings.m_colourSubcarrierLevel = value / 100.0f;
+    applySettings(QStringList("colourSubcarrierLevel"));
+}
+
 void ATVModGUI::on_overlayTextShow_toggled(bool checked)
 {
     m_settings.m_showOverlayText = checked;
@@ -822,6 +842,12 @@ void ATVModGUI::displaySettings()
     ui->overlayText->setText(m_settings.m_overlayText);
     ui->overlayTextShow->setChecked(m_settings.m_showOverlayText);
 
+    ui->checkBoxColour->setChecked(m_settings.m_colourEnabled);
+    ui->comboBoxColourStd->setCurrentIndex((int) m_settings.m_colourStd);
+    ui->comboBoxColourStd->setEnabled(m_settings.m_colourEnabled);
+    ui->sliderChromaLevel->setValue((int)(m_settings.m_colourSubcarrierLevel * 100));
+    ui->chromaLevelText->setText(QString("%1").arg(ui->sliderChromaLevel->value()));
+
     ui->playCamera->setChecked(m_settings.m_cameraPlay);
     ui->playVideo->setChecked(m_settings.m_videoPlay);
     ui->playLoop->setChecked(m_settings.m_videoPlayLoop);
@@ -916,6 +942,9 @@ void ATVModGUI::makeUIConnections()
     QObject::connect(ui->camSelect, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &ATVModGUI::on_camSelect_currentIndexChanged);
     QObject::connect(ui->cameraManualFPSEnable, &ButtonSwitch::toggled, this, &ATVModGUI::on_cameraManualFPSEnable_toggled);
     QObject::connect(ui->cameraManualFPS, &QDial::valueChanged, this, &ATVModGUI::on_cameraManualFPS_valueChanged);
+    QObject::connect(ui->checkBoxColour, &QCheckBox::toggled, this, &ATVModGUI::on_checkBoxColour_toggled);
+    QObject::connect(ui->comboBoxColourStd, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &ATVModGUI::on_comboBoxColourStd_currentIndexChanged);
+    QObject::connect(ui->sliderChromaLevel, &QSlider::valueChanged, this, &ATVModGUI::on_sliderChromaLevel_valueChanged);
     QObject::connect(ui->overlayTextShow, &ButtonSwitch::toggled, this, &ATVModGUI::on_overlayTextShow_toggled);
     QObject::connect(ui->overlayText, &QLineEdit::textEdited, this, &ATVModGUI::on_overlayText_textEdited);
 }

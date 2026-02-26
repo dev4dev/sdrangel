@@ -18,6 +18,8 @@
 ///////////////////////////////////////////////////////////////////////////////////
 
 #include <time.h>
+#include <cmath>
+#include <algorithm>
 
 #include <QDebug>
 #include <QNetworkAccessManager>
@@ -37,6 +39,17 @@ const int ATVModSource::m_levelNbSamples = 10000; // every 10ms
 const int ATVModSource::m_nbBars = 6;
 const int ATVModSource::m_cameraFPSTestNbFrames = 100;
 const int ATVModSource::m_ssbFftLen = 1024;
+
+// SMPTE 75% colour bars: White, Yellow, Cyan, Green, Magenta, Red, Blue
+const ATVModSource::ColourBar ATVModSource::m_colourBars[7] = {
+    { 1.000f,  0.000f,  0.000f }, // White   (1,1,1)
+    { 0.886f, -0.437f,  0.100f }, // Yellow  (1,1,0)
+    { 0.701f,  0.147f, -0.615f }, // Cyan    (0,1,1)
+    { 0.587f, -0.289f, -0.515f }, // Green   (0,1,0)
+    { 0.413f,  0.289f,  0.515f }, // Magenta (1,0,1)
+    { 0.299f, -0.147f,  0.615f }, // Red     (1,0,0)
+    { 0.114f,  0.437f, -0.100f }, // Blue    (0,0,1)
+};
 
 const ATVModSource::LineType ATVModSource::StdPAL625_F1Start[] = {
     LineBroadPulses,       // 1 (index 0)
@@ -122,7 +135,11 @@ ATVModSource::ATVModSource() :
 	m_videoEOF(false),
 	m_videoOK(false),
 	m_cameraIndex(-1),
-	//m_showOverlayText(false),
+    m_colourLUTWidth(0),
+    m_colourLUTOffset(0),
+    m_frameCount(0),
+    m_burstLeftPoints(0),
+    m_burstWidthPoints(0),
     m_SSBFilter(nullptr),
     m_SSBFilterBuffer(nullptr),
     m_SSBFilterBufferIndex(0),
@@ -369,12 +386,21 @@ void ATVModSource::pullVideo(Real& sample)
             }
 
             m_lineType = getLineType(m_settings.m_atvStd, m_lineCount);
+
+            if (m_settings.m_colourEnabled && m_colourLUTWidth > 0) {
+                m_colourLUTOffset = (m_colourLUTOffset + m_pointsPerLine) % m_colourLUTWidth;
+            }
         }
         else // new image
         {
             m_lineCount = 0;
             m_imageLine = m_imageLineStart1; // field1 image line start index
             m_lineType = getLineType(m_settings.m_atvStd, m_lineCount);
+
+            if (m_settings.m_colourEnabled && m_colourLUTWidth > 0) {
+                m_colourLUTOffset = (m_colourLUTOffset + m_pointsPerLine) % m_colourLUTWidth;
+                m_frameCount++;
+            }
 
             if ((m_settings.m_atvModInput == ATVModSettings::ATVModInputVideo) && m_videoOK && (m_settings.m_videoPlay) && !m_videoEOF)
             {
@@ -401,7 +427,7 @@ void ATVModSource::pullVideo(Real& sample)
             		        mixImageAndText(colorFrame);
             		    }
 
-            		    cv::cvtColor(colorFrame, m_videoframeOriginal, cv::COLOR_RGB2GRAY);
+            		    m_videoframeOriginal = colorFrame;
             		    resizeVideo();
             		}
             	}
@@ -528,7 +554,7 @@ void ATVModSource::pullVideo(Real& sample)
                         mixImageAndText(colorFrame);
                     }
 
-                    cv::cvtColor(colorFrame, camera.m_videoframeOriginal, cv::COLOR_RGB2GRAY);
+                    camera.m_videoframeOriginal = colorFrame;
                     resizeCamera();
                 }
 
@@ -687,6 +713,61 @@ void ATVModSource::applyStandard(const ATVModSettings& settings)
 
     m_linesPerVBar = m_nbImageLines  / m_nbBars;
 
+    // Colour subcarrier LUT
+    if (settings.m_colourEnabled)
+    {
+        float fsc = (settings.m_colourStd == ATVModSettings::ATVColourNTSC)
+            ? 3579545.4545f   // 39375000/11
+            : 4433618.75f;    // 17734475/4
+
+        int framesInPeriod = (settings.m_colourStd == ATVModSettings::ATVColourNTSC) ? 2 : 4;
+        m_colourLUTWidth = (uint32_t)(framesInPeriod) * (uint32_t)m_nbLines * m_pointsPerLine;
+
+        m_colourLUT.resize(m_colourLUTWidth + m_pointsPerLine); // +1 line guard
+        float phaseInc = 2.0f * (float)M_PI * fsc / (float)m_tvSampleRate;
+        for (uint32_t i = 0; i < m_colourLUT.size(); i++) {
+            m_colourLUT[i] = Complex(std::cos(phaseInc * i), std::sin(phaseInc * i));
+        }
+
+        m_colourLUTOffset = 0;
+        m_frameCount      = 0;
+
+        // Burst geometry
+        float burstLeftUs  = (settings.m_colourStd == ATVModSettings::ATVColourNTSC) ? 5.3e-6f  : 5.6e-6f;
+        float burstWidthUs = (settings.m_colourStd == ATVModSettings::ATVColourNTSC) ? 2.5e-6f  : 2.25e-6f;
+        float lineUs = 1.0f / ((float)settings.m_nbLines * (float)settings.m_fps);
+        m_burstLeftPoints  = (int)(burstLeftUs  / lineUs * m_pointsPerLine);
+        m_burstWidthPoints = (int)(burstWidthUs / lineUs * m_pointsPerLine);
+
+        // Ensure burst starts within back porch, not in sync region
+        m_burstLeftPoints = std::max(m_pointsPerSync, m_burstLeftPoints);
+        // Clamp burst end to back porch boundary
+        int bpEnd = m_pointsPerSync + m_pointsPerBP;
+        if (m_burstLeftPoints + m_burstWidthPoints > bpEnd) {
+            m_burstWidthPoints = std::max(0, bpEnd - m_burstLeftPoints);
+        }
+
+        // Raised-cosine burst window
+        float burstRiseUs = 0.3e-6f;
+        int risePoints = std::max(1, (int)(burstRiseUs / lineUs * m_pointsPerLine));
+        m_burstWindow.resize(m_burstWidthPoints);
+        for (int i = 0; i < m_burstWidthPoints; i++) {
+            float env = 1.0f;
+            if (i < risePoints) {
+                env = 0.5f * (1.0f - std::cos((float)M_PI * i / risePoints));
+            } else if (i > m_burstWidthPoints - 1 - risePoints) {
+                env = 0.5f * (1.0f - std::cos((float)M_PI * (m_burstWidthPoints - 1 - i) / risePoints));
+            }
+            m_burstWindow[i] = env;
+        }
+    }
+    else
+    {
+        m_colourLUT.clear();
+        m_colourLUTWidth = 0;
+        m_burstWindow.clear();
+    }
+
     if (m_imageOK)
     {
         resizeImage();
@@ -703,7 +784,7 @@ void ATVModSource::applyStandard(const ATVModSettings& settings)
 
 void ATVModSource::openImage(const QString& fileName)
 {
-    m_imageFromFile = cv::imread(qPrintable(fileName), cv::ImreadModes::IMREAD_GRAYSCALE);
+    m_imageFromFile = cv::imread(qPrintable(fileName), cv::ImreadModes::IMREAD_COLOR);
 	m_imageOK = m_imageFromFile.data != 0;
 
 	if (m_imageOK)
@@ -1026,6 +1107,19 @@ void ATVModSource::applySettings(const QStringList& settingsKeys, const ATVModSe
         );
         std::fill(m_DSBFilterBuffer, m_DSBFilterBuffer + m_ssbFftLen, Complex{0.0, 0.0});
         m_DSBFilterBufferIndex = 0;
+    }
+
+    if ((settingsKeys.contains("colourEnabled") && (settings.m_colourEnabled != m_settings.m_colourEnabled))
+        || (settingsKeys.contains("colourStd") && (settings.m_colourStd != m_settings.m_colourStd)))
+    {
+        applyStandard(settings);
+
+        if (getMessageQueueToGUI())
+        {
+            ATVModReport::MsgReportEffectiveSampleRate *report =
+                ATVModReport::MsgReportEffectiveSampleRate::create(m_tvSampleRate, m_pointsPerLine);
+            getMessageQueueToGUI()->push(report);
+        }
     }
 
     if ((settingsKeys.contains("showOverlayText") && (settings.m_showOverlayText != m_settings.m_showOverlayText)) || force)

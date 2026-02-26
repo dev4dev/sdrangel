@@ -48,8 +48,15 @@ struct ATVModSettings
         ATVModInputDiagonal,
         ATVModInputImage,
         ATVModInputVideo,
-        ATVModInputCamera
+        ATVModInputCamera,
+        ATVModInputColorBars
     } ATVModInput;
+
+    typedef enum
+    {
+        ATVColourPAL,   //!< PAL subcarrier 4433618.75 Hz, +/-135 deg burst, V alternates per line
+        ATVColourNTSC   //!< NTSC subcarrier 3579545.45 Hz, 180 deg burst fixed
+    } ATVColourStd;
 
     typedef enum
     {
@@ -93,6 +100,9 @@ struct ATVModSettings
     int m_workspaceIndex;
     QByteArray m_geometryBytes;
     bool m_hidden;
+    bool          m_colourEnabled;          //!< Enable PAL/NTSC colour subcarrier encoding
+    ATVColourStd  m_colourStd;              //!< PAL or NTSC colour standard
+    float         m_colourSubcarrierLevel;  //!< Chroma subcarrier amplitude 0.0-1.0
 
     Serializable *m_channelMarker;
     Serializable *m_rollupState;

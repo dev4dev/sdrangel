@@ -138,6 +138,10 @@ private slots:
     void on_cameraManualFPSEnable_toggled(bool checked);
     void on_cameraManualFPS_valueChanged(int value);
 
+    void on_checkBoxColour_toggled(bool checked);
+    void on_comboBoxColourStd_currentIndexChanged(int index);
+    void on_sliderChromaLevel_valueChanged(int value);
+
     void on_overlayTextShow_toggled(bool checked);
     void on_overlayText_textEdited(const QString& arg1);
 

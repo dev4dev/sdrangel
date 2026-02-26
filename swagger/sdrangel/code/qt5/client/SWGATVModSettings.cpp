@@ -86,6 +86,12 @@ SWGATVModSettings::SWGATVModSettings() {
     m_reverse_api_device_index_isSet = false;
     reverse_api_channel_index = 0;
     m_reverse_api_channel_index_isSet = false;
+    colour_enabled = 0;
+    m_colour_enabled_isSet = false;
+    colour_std = 0;
+    m_colour_std_isSet = false;
+    colour_subcarrier_level = 0.0f;
+    m_colour_subcarrier_level_isSet = false;
     channel_marker = nullptr;
     m_channel_marker_isSet = false;
     rollup_state = nullptr;
@@ -156,6 +162,12 @@ SWGATVModSettings::init() {
     m_reverse_api_device_index_isSet = false;
     reverse_api_channel_index = 0;
     m_reverse_api_channel_index_isSet = false;
+    colour_enabled = 0;
+    m_colour_enabled_isSet = false;
+    colour_std = 0;
+    m_colour_std_isSet = false;
+    colour_subcarrier_level = 0.0f;
+    m_colour_subcarrier_level_isSet = false;
     channel_marker = new SWGChannelMarker();
     m_channel_marker_isSet = false;
     rollup_state = new SWGRollupState();
@@ -280,10 +292,16 @@ SWGATVModSettings::fromJsonObject(QJsonObject &pJson) {
     
     ::SWGSDRangel::setValue(&reverse_api_channel_index, pJson["reverseAPIChannelIndex"], "qint32", "");
     
+    ::SWGSDRangel::setValue(&colour_enabled, pJson["colourEnabled"], "qint32", "");
+
+    ::SWGSDRangel::setValue(&colour_std, pJson["colourStd"], "qint32", "");
+
+    ::SWGSDRangel::setValue(&colour_subcarrier_level, pJson["colourSubcarrierLevel"], "float", "");
+
     ::SWGSDRangel::setValue(&channel_marker, pJson["channelMarker"], "SWGChannelMarker", "SWGChannelMarker");
-    
+
     ::SWGSDRangel::setValue(&rollup_state, pJson["rollupState"], "SWGRollupState", "SWGRollupState");
-    
+
 }
 
 QString
@@ -386,6 +404,15 @@ SWGATVModSettings::asJsonObject() {
     }
     if(m_reverse_api_channel_index_isSet){
         obj->insert("reverseAPIChannelIndex", QJsonValue(reverse_api_channel_index));
+    }
+    if(m_colour_enabled_isSet){
+        obj->insert("colourEnabled", QJsonValue(colour_enabled));
+    }
+    if(m_colour_std_isSet){
+        obj->insert("colourStd", QJsonValue(colour_std));
+    }
+    if(m_colour_subcarrier_level_isSet){
+        obj->insert("colourSubcarrierLevel", QJsonValue(colour_subcarrier_level));
     }
     if((channel_marker != nullptr) && (channel_marker->isSet())){
         toJsonValue(QString("channelMarker"), channel_marker, obj, QString("SWGChannelMarker"));
@@ -687,6 +714,36 @@ SWGATVModSettings::setReverseApiChannelIndex(qint32 reverse_api_channel_index) {
     this->m_reverse_api_channel_index_isSet = true;
 }
 
+qint32
+SWGATVModSettings::getColourEnabled() {
+    return colour_enabled;
+}
+void
+SWGATVModSettings::setColourEnabled(qint32 colour_enabled) {
+    this->colour_enabled = colour_enabled;
+    this->m_colour_enabled_isSet = true;
+}
+
+qint32
+SWGATVModSettings::getColourStd() {
+    return colour_std;
+}
+void
+SWGATVModSettings::setColourStd(qint32 colour_std) {
+    this->colour_std = colour_std;
+    this->m_colour_std_isSet = true;
+}
+
+float
+SWGATVModSettings::getColourSubcarrierLevel() {
+    return colour_subcarrier_level;
+}
+void
+SWGATVModSettings::setColourSubcarrierLevel(float colour_subcarrier_level) {
+    this->colour_subcarrier_level = colour_subcarrier_level;
+    this->m_colour_subcarrier_level_isSet = true;
+}
+
 SWGChannelMarker*
 SWGATVModSettings::getChannelMarker() {
     return channel_marker;
@@ -797,6 +854,15 @@ SWGATVModSettings::isSet(){
             isObjectUpdated = true; break;
         }
         if(m_reverse_api_channel_index_isSet){
+            isObjectUpdated = true; break;
+        }
+        if(m_colour_enabled_isSet){
+            isObjectUpdated = true; break;
+        }
+        if(m_colour_std_isSet){
+            isObjectUpdated = true; break;
+        }
+        if(m_colour_subcarrier_level_isSet){
             isObjectUpdated = true; break;
         }
         if(channel_marker && channel_marker->isSet()){

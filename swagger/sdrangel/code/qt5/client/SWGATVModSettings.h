@@ -131,6 +131,15 @@ public:
     qint32 getReverseApiChannelIndex();
     void setReverseApiChannelIndex(qint32 reverse_api_channel_index);
 
+    qint32 getColourEnabled();
+    void setColourEnabled(qint32 colour_enabled);
+
+    qint32 getColourStd();
+    void setColourStd(qint32 colour_std);
+
+    float getColourSubcarrierLevel();
+    void setColourSubcarrierLevel(float colour_subcarrier_level);
+
     SWGChannelMarker* getChannelMarker();
     void setChannelMarker(SWGChannelMarker* channel_marker);
 
@@ -227,6 +236,15 @@ private:
 
     qint32 reverse_api_channel_index;
     bool m_reverse_api_channel_index_isSet;
+
+    qint32 colour_enabled;
+    bool m_colour_enabled_isSet;
+
+    qint32 colour_std;
+    bool m_colour_std_isSet;
+
+    float colour_subcarrier_level;
+    bool m_colour_subcarrier_level_isSet;
 
     SWGChannelMarker* channel_marker;
     bool m_channel_marker_isSet;

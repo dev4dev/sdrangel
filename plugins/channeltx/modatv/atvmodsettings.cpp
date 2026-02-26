@@ -60,6 +60,9 @@ void ATVModSettings::resetToDefaults()
     m_reverseAPIChannelIndex = 0;
     m_workspaceIndex = 0;
     m_hidden = false;
+    m_colourEnabled = false;
+    m_colourStd = ATVColourPAL;
+    m_colourSubcarrierLevel = 1.0f;
 }
 
 QByteArray ATVModSettings::serialize() const
@@ -102,6 +105,9 @@ QByteArray ATVModSettings::serialize() const
     s.writeS32(26, m_workspaceIndex);
     s.writeBlob(27, m_geometryBytes);
     s.writeBool(28, m_hidden);
+    s.writeBool(29, m_colourEnabled);
+    s.writeS32(30, (int) m_colourStd);
+    s.writeS32(31, roundf(m_colourSubcarrierLevel * 100.0));
 
     return s.final();
 }
@@ -178,6 +184,11 @@ bool ATVModSettings::deserialize(const QByteArray& data)
         d.readS32(26, &m_workspaceIndex, 0);
         d.readBlob(27, &m_geometryBytes);
         d.readBool(28, &m_hidden, false);
+        d.readBool(29, &m_colourEnabled, false);
+        d.readS32(30, &tmp, 0);
+        m_colourStd = (ATVColourStd) tmp;
+        d.readS32(31, &tmp, 100);
+        m_colourSubcarrierLevel = tmp / 100.0f;
 
         return true;
     }
@@ -286,6 +297,15 @@ void ATVModSettings::applySettings(const QStringList& settingsKeys, const ATVMod
     if (settingsKeys.contains("hidden")) {
         m_hidden = settings.m_hidden;
     }
+    if (settingsKeys.contains("colourEnabled")) {
+        m_colourEnabled = settings.m_colourEnabled;
+    }
+    if (settingsKeys.contains("colourStd")) {
+        m_colourStd = settings.m_colourStd;
+    }
+    if (settingsKeys.contains("colourSubcarrierLevel")) {
+        m_colourSubcarrierLevel = settings.m_colourSubcarrierLevel;
+    }
 }
 
 QString ATVModSettings::getDebugString(const QStringList& settingsKeys, bool force) const
@@ -384,6 +404,15 @@ QString ATVModSettings::getDebugString(const QStringList& settingsKeys, bool for
     }
     if (settingsKeys.contains("hidden") || force) {
         ostr << " m_hidden: " << m_hidden;
+    }
+    if (settingsKeys.contains("colourEnabled") || force) {
+        ostr << " m_colourEnabled: " << m_colourEnabled;
+    }
+    if (settingsKeys.contains("colourStd") || force) {
+        ostr << " m_colourStd: " << m_colourStd;
+    }
+    if (settingsKeys.contains("colourSubcarrierLevel") || force) {
+        ostr << " m_colourSubcarrierLevel: " << m_colourSubcarrierLevel;
     }
 
     return QString(ostr.str().c_str());

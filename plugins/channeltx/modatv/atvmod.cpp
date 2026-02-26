@@ -478,6 +478,15 @@ void ATVMod::webapiUpdateChannelSettings(
     if (channelSettingsKeys.contains("reverseAPIChannelIndex")) {
         settings.m_reverseAPIChannelIndex = response.getAtvModSettings()->getReverseApiChannelIndex();
     }
+    if (channelSettingsKeys.contains("colourEnabled")) {
+        settings.m_colourEnabled = response.getAtvModSettings()->getColourEnabled() != 0;
+    }
+    if (channelSettingsKeys.contains("colourStd")) {
+        settings.m_colourStd = (ATVModSettings::ATVColourStd) response.getAtvModSettings()->getColourStd();
+    }
+    if (channelSettingsKeys.contains("colourSubcarrierLevel")) {
+        settings.m_colourSubcarrierLevel = response.getAtvModSettings()->getColourSubcarrierLevel();
+    }
     if (settings.m_channelMarker && channelSettingsKeys.contains("channelMarker")) {
         settings.m_channelMarker->updateFrom(channelSettingsKeys, response.getAtvModSettings()->getChannelMarker());
     }
@@ -516,6 +525,9 @@ void ATVMod::webapiFormatChannelSettings(SWGSDRangel::SWGChannelSettings& respon
     response.getAtvModSettings()->setRfScalingFactor(settings.m_rfScalingFactor);
     response.getAtvModSettings()->setFmExcursion(settings.m_fmExcursion);
     response.getAtvModSettings()->setForceDecimator(settings.m_forceDecimator ? 1 : 0);
+    response.getAtvModSettings()->setColourEnabled(settings.m_colourEnabled ? 1 : 0);
+    response.getAtvModSettings()->setColourStd((int) settings.m_colourStd);
+    response.getAtvModSettings()->setColourSubcarrierLevel(settings.m_colourSubcarrierLevel);
     response.getAtvModSettings()->setShowOverlayText(settings.m_showOverlayText ? 1 : 0);
 
     if (response.getAtvModSettings()->getOverlayText()) {
@@ -719,6 +731,15 @@ void ATVMod::webapiFormatChannelSettings(
     }
     if (channelSettingsKeys.contains("title") || force) {
         swgATVModSettings->setTitle(new QString(settings.m_title));
+    }
+    if (channelSettingsKeys.contains("colourEnabled") || force) {
+        swgATVModSettings->setColourEnabled(settings.m_colourEnabled ? 1 : 0);
+    }
+    if (channelSettingsKeys.contains("colourStd") || force) {
+        swgATVModSettings->setColourStd((int) settings.m_colourStd);
+    }
+    if (channelSettingsKeys.contains("colourSubcarrierLevel") || force) {
+        swgATVModSettings->setColourSubcarrierLevel(settings.m_colourSubcarrierLevel);
     }
     if (channelSettingsKeys.contains("streamIndex") || force) {
         swgATVModSettings->setStreamIndex(settings.m_streamIndex);
