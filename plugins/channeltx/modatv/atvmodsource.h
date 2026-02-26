@@ -729,9 +729,45 @@ private:
 
     inline void pullBlackLineSample(Real& sample)
     {
-        if (m_horizontalCount < m_pointsPerSync) {
+        if (m_horizontalCount < m_pointsPerSync)
+        {
             sample = 0.0f; // ultra-black
-        } else {
+        }
+        else if (m_horizontalCount < m_pointsPerSync + m_pointsPerBP)
+        {
+            // Add colour burst during back porch of black lines so the decoder
+            // can lock onto the subcarrier before visible lines begin.
+            if (m_settings.m_colourEnabled
+                && m_colourLUTWidth > 0
+                && m_horizontalCount >= m_burstLeftPoints
+                && m_horizontalCount <  m_burstLeftPoints + m_burstWidthPoints)
+            {
+                uint32_t lutIdx = (m_colourLUTOffset + (uint32_t)m_horizontalCount) % m_colourLUTWidth;
+                const Complex& sc = m_colourLUT[lutIdx];
+
+                int burstIndex = m_horizontalCount - m_burstLeftPoints;
+                float envelope = m_burstWindow[burstIndex];
+
+                float burstI, burstQ;
+                if (m_settings.m_colourStd == ATVModSettings::ATVColourNTSC) {
+                    burstI = 0.0f; burstQ = -1.0f;
+                } else {
+                    bool palBurstPositive = !(m_lineCount & 1);
+                    burstI = palBurstPositive ? 0.70711f : -0.70711f;
+                    burstQ = -0.70711f;
+                }
+                float burstLvl = (m_settings.m_colourStd == ATVModSettings::ATVColourNTSC)
+                                 ? (4.0f/20.0f) : (3.0f/14.0f);
+                sample = m_blackLevel
+                       + burstLvl * m_spanLevel * envelope * (burstI * sc.real() + burstQ * sc.imag());
+            }
+            else
+            {
+                sample = m_blackLevel; // black
+            }
+        }
+        else
+        {
             sample = m_blackLevel; // black
         }
     }
