@@ -487,14 +487,15 @@ private:
 
                 float burstI, burstQ;
                 if (m_settings.m_colourStd == ATVModSettings::ATVColourNTSC) {
-                    burstI = -1.0f; burstQ = 0.0f;
+                    burstI = 0.0f; burstQ = -1.0f; // burst at 180°: -sin(ωt)
                 } else {
                     bool palBurstPositive = !(m_lineCount & 1);
-                    burstI = -0.70711f;
-                    burstQ =  palBurstPositive ? 0.70711f : -0.70711f;
+                    burstI = palBurstPositive ? 0.70711f : -0.70711f; // cos coeff: ±sin(135°)
+                    burstQ = -0.70711f; // sin coeff: cos(135°)
                 }
+                // burst_level is peak-to-peak ratio; divide by 2 for peak amplitude (matches hacktv)
                 float burstLvl = (m_settings.m_colourStd == ATVModSettings::ATVColourNTSC)
-                                 ? (4.0f/10.0f) : (3.0f/7.0f);
+                                 ? (4.0f/20.0f) : (3.0f/14.0f);
                 sample = m_blackLevel
                        + burstLvl * m_spanLevel * envelope * (burstI * sc.real() + burstQ * sc.imag());
             }

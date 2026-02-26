@@ -716,17 +716,18 @@ void ATVModSource::applyStandard(const ATVModSettings& settings)
     // Colour subcarrier LUT
     if (settings.m_colourEnabled)
     {
-        float fsc = (settings.m_colourStd == ATVModSettings::ATVColourNTSC)
-            ? 3579545.4545f   // 39375000/11
-            : 4433618.75f;    // 17734475/4
+        double fsc = (settings.m_colourStd == ATVModSettings::ATVColourNTSC)
+            ? 3579545.4545   // 39375000/11
+            : 4433618.75;    // 17734475/4
 
         int framesInPeriod = (settings.m_colourStd == ATVModSettings::ATVColourNTSC) ? 2 : 4;
         m_colourLUTWidth = (uint32_t)(framesInPeriod) * (uint32_t)m_nbLines * m_pointsPerLine;
 
         m_colourLUT.resize(m_colourLUTWidth + m_pointsPerLine); // +1 line guard
-        float phaseInc = 2.0f * (float)M_PI * fsc / (float)m_tvSampleRate;
+        double phaseInc = 2.0 * M_PI * fsc / (double)m_tvSampleRate;
         for (uint32_t i = 0; i < m_colourLUT.size(); i++) {
-            m_colourLUT[i] = Complex(std::cos(phaseInc * i), std::sin(phaseInc * i));
+            double phase = phaseInc * (double)i;
+            m_colourLUT[i] = Complex(std::cos(phase), std::sin(phase));
         }
 
         m_colourLUTOffset = 0;
