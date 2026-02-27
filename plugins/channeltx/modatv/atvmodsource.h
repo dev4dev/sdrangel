@@ -35,6 +35,7 @@
 #include "dsp/interpolator.h"
 #include "util/movingaverage.h"
 #include "dsp/fftfilt.h"
+#include "dsp/firfilter.h"
 #include "util/message.h"
 
 #include "atvmodsettings.h"
@@ -223,6 +224,8 @@ private:
     int       m_burstLeftPoints;        //!< start of burst window in samples from line start
     int       m_burstWidthPoints;       //!< duration of burst window in samples
     std::vector<float> m_burstWindow;   //!< raised-cosine burst envelope
+    GaussianLowpass<float> m_chromaFilterU; //!< 1.4 MHz Gaussian LPF for U chrominance
+    GaussianLowpass<float> m_chromaFilterV; //!< 1.4 MHz Gaussian LPF for V chrominance
 
     // Pre-computed colour bar pixel data (7 bars x {Y,U,V})
     struct ColourBar { float Y, U, V; };
@@ -284,6 +287,21 @@ private:
         Y = 0.299f * r + 0.587f * g + 0.114f * b;
         U = 0.493f * (b - Y);
         V = 0.877f * (r - Y);
+    }
+
+    // Applies PAL V inversion, chroma bandwidth filtering, subcarrier modulation
+    // and returns the composite sample value.
+    inline float compositeColourSample(float Y, float U, float V)
+    {
+        bool palVInvert = (m_settings.m_colourStd == ATVModSettings::ATVColourPAL)
+                          && (m_lineCount & 1);
+        float Vmod = palVInvert ? -V : V;
+        float Uf = m_chromaFilterU.filter(U);
+        float Vf = m_chromaFilterV.filter(Vmod);
+        uint32_t lutIdx = (m_colourLUTOffset + (uint32_t)m_horizontalCount) % m_colourLUTWidth;
+        const Complex& sc = m_colourLUT[lutIdx];
+        float chroma = (Uf * sc.imag() + Vf * sc.real()) * m_settings.m_colourSubcarrierLevel;
+        return Y * m_spanLevel + m_blackLevel + chroma * m_spanLevel;
     }
 
     inline LineType getLineType(ATVModSettings::ATVStd standard, int lineNumber)
@@ -514,6 +532,12 @@ private:
 
             int pointIndex = m_horizontalCount - (m_pointsPerSync + m_pointsPerBP);
 
+            if (pointIndex == 0 && m_settings.m_colourEnabled && m_colourLUTWidth > 0)
+            {
+                m_chromaFilterU.reset();
+                m_chromaFilterV.reset();
+            }
+
             switch(m_settings.m_atvModInput)
             {
             case ATVModSettings::ATVModInputHBars:
@@ -546,14 +570,7 @@ private:
                     {
                         float Y, U, V;
                         bgrToYUV(px, Y, U, V);
-                        bool palVInvert = (m_settings.m_colourStd == ATVModSettings::ATVColourPAL)
-                                          && (m_lineCount & 1);
-                        float Vmod = palVInvert ? -V : V;
-                        uint32_t lutIdx = (m_colourLUTOffset + (uint32_t)m_horizontalCount) % m_colourLUTWidth;
-                        const Complex& sc = m_colourLUT[lutIdx];
-                        // TODO: Apply 1.4 MHz Gaussian LPF to U and V for proper chroma bandwidth limiting
-                        float chroma = (U * sc.imag() + Vmod * sc.real()) * m_settings.m_colourSubcarrierLevel;
-                        sample = Y * m_spanLevel + m_blackLevel + chroma * m_spanLevel;
+                        sample = compositeColourSample(Y, U, V);
                     }
                     else
                     {
@@ -574,13 +591,7 @@ private:
                     {
                         float Y, U, V;
                         bgrToYUV(px, Y, U, V);
-                        bool palVInvert = (m_settings.m_colourStd == ATVModSettings::ATVColourPAL)
-                                          && (m_lineCount & 1);
-                        float Vmod = palVInvert ? -V : V;
-                        uint32_t lutIdx = (m_colourLUTOffset + (uint32_t)m_horizontalCount) % m_colourLUTWidth;
-                        const Complex& sc = m_colourLUT[lutIdx];
-                        float chroma = (U * sc.imag() + Vmod * sc.real()) * m_settings.m_colourSubcarrierLevel;
-                        sample = Y * m_spanLevel + m_blackLevel + chroma * m_spanLevel;
+                        sample = compositeColourSample(Y, U, V);
                     }
                     else
                     {
@@ -609,13 +620,7 @@ private:
                         {
                             float Y, U, V;
                             bgrToYUV(px, Y, U, V);
-                            bool palVInvert = (m_settings.m_colourStd == ATVModSettings::ATVColourPAL)
-                                              && (m_lineCount & 1);
-                            float Vmod = palVInvert ? -V : V;
-                            uint32_t lutIdx = (m_colourLUTOffset + (uint32_t)m_horizontalCount) % m_colourLUTWidth;
-                            const Complex& sc = m_colourLUT[lutIdx];
-                            float chroma = (U * sc.imag() + Vmod * sc.real()) * m_settings.m_colourSubcarrierLevel;
-                            sample = Y * m_spanLevel + m_blackLevel + chroma * m_spanLevel;
+                            sample = compositeColourSample(Y, U, V);
                         }
                         else
                         {
@@ -632,13 +637,7 @@ private:
                 const ColourBar& bar = m_colourBars[barIndex];
                 if (m_settings.m_colourEnabled && m_colourLUTWidth > 0)
                 {
-                    bool palVInvert = (m_settings.m_colourStd == ATVModSettings::ATVColourPAL)
-                                      && (m_lineCount & 1);
-                    float Vmod = palVInvert ? -bar.V : bar.V;
-                    uint32_t lutIdx = (m_colourLUTOffset + (uint32_t)m_horizontalCount) % m_colourLUTWidth;
-                    const Complex& sc = m_colourLUT[lutIdx];
-                    float chroma = (bar.U * sc.imag() + Vmod * sc.real()) * m_settings.m_colourSubcarrierLevel;
-                    sample = bar.Y * m_spanLevel + m_blackLevel + chroma * m_spanLevel;
+                    sample = compositeColourSample(bar.Y, bar.U, bar.V);
                 }
                 else
                 {

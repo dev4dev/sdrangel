@@ -761,6 +761,12 @@ void ATVModSource::applyStandard(const ATVModSettings& settings)
             }
             m_burstWindow[i] = env;
         }
+
+        // Chrominance bandwidth filter (1.4 MHz Gaussian LPF)
+        double chromaBW = 1.4e6;
+        int chromaNtaps = GaussianLowpass<float>::calcNtaps((double)m_tvSampleRate, chromaBW);
+        m_chromaFilterU.create(chromaNtaps, (double)m_tvSampleRate, chromaBW);
+        m_chromaFilterV.create(chromaNtaps, (double)m_tvSampleRate, chromaBW);
     }
     else
     {

@@ -58,6 +58,12 @@ public:
         return acc;
     }
 
+    void reset()
+    {
+        std::fill(m_samples.begin(), m_samples.end(), Type(0));
+        m_ptr = 0;
+    }
+
     // Print taps as a Matlab vector
     // To view:
     //   h=fvtool(filter);
@@ -139,5 +145,53 @@ struct Highpass : public FirFilter<T>
         }
 
         this->m_taps[this->m_taps.size() - 1] += 1;
+    }
+};
+
+// Gaussian low-pass filter for chrominance bandwidth limiting.
+// Tap generation ported from hacktv fir_gaussian_low_pass().
+template <class T>
+struct GaussianLowpass : public FirFilter<T>
+{
+    void create(int nTaps, double sampleRate, double cutoff)
+    {
+        this->init(nTaps);
+        generateGaussianTaps(nTaps, sampleRate, cutoff, this->m_taps);
+    }
+
+    static int calcNtaps(double sampleRate, double cutoff)
+    {
+        int ntaps = (int)std::ceil(sampleRate / 1.35e6 / (cutoff / 1.4e6));
+        return ntaps | 1;
+    }
+
+private:
+    static void generateGaussianTaps(int nTaps, double sampleRate, double cutoff, std::vector<Real>& taps)
+    {
+        nTaps |= 1; // ensure odd
+        int h = nTaps / 2;
+
+        double f = 13.5e6 / sampleRate;
+        double s = 354372.0 / cutoff;
+
+        taps.resize(h + 1);
+
+        double sum = 0.0;
+
+        for (int x = 0; x <= h; x++)
+        {
+            double t = (double)x / 5.0 * f;
+            double r = 1.0 / s * std::sqrt(2.0 * M_PI) * std::exp(-t * t / (2.0 * s * s));
+
+            sum += r * (x > 0 ? 2.0 : 1.0);
+            taps[h - x] = (Real)r; // taps[h] = center, taps[0] = outermost
+        }
+
+        // Normalize to unity gain
+        double gain = 1.0 / sum;
+
+        for (int i = 0; i <= h; i++) {
+            taps[i] *= (Real)gain;
+        }
     }
 };
