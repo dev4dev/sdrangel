@@ -75,6 +75,26 @@ cmake --build build -j$(sysctl -n hw.ncpu) --target package  # produces .dmg
 
 Key flags: `-DBUNDLE=ON` creates .dmg, `-DENABLE_EXTERNAL_LIBRARIES=ON` auto-builds Boost/FFTW3/libusb/codec2/cm256cc/etc. from source.
 
+#### Homebrew .dmg packaging (without ENABLE_EXTERNAL_LIBRARIES)
+
+If using Homebrew dependencies instead of `ENABLE_EXTERNAL_LIBRARIES`, you must pass FLAC paths explicitly:
+
+```bash
+brew install qt boost fftw libusb pkg-config opencv ffmpeg flac
+
+cmake -B build-release -DCMAKE_BUILD_TYPE=Release \
+  -DBUNDLE=ON -DENABLE_QT6=ON -DRX_SAMPLE_24BIT=ON \
+  -DCMAKE_PREFIX_PATH=/opt/homebrew/opt/qt \
+  -DFLAC_INCLUDE_DIR=/opt/homebrew/include \
+  -DFLAC_LIBRARIES=/opt/homebrew/lib/libFLAC.dylib \
+  -DARCH_OPT=native
+
+cmake --build build-release -j$(sysctl -n hw.ncpu)
+cd build-release && cpack  # produces .dmg
+```
+
+**FLAC is required for all macOS builds** (both dev and release). The `remotetcpsink` plugin needs `FLAC/stream_encoder.h`. On Apple Silicon, Homebrew installs to `/opt/homebrew/` which CMake's `FindFLAC` doesn't search, so `-DFLAC_INCLUDE_DIR` and `-DFLAC_LIBRARIES` must always be passed explicitly.
+
 #### Build a single plugin (faster iteration)
 
 ```bash
