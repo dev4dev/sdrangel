@@ -150,7 +150,7 @@ parts:
         override-pull: |
             snapcraftctl pull
             snapcraftctl set-version "$(git describe --tags --abbrev=0 | sed 's/v//')"
-        after: [apt, libdab, mbelib, serialdv, dsdcc, codec2, sgp4, inmarsatc, cm265cc, libsigmf, airspy, rtlsdr, pluto, bladerf, hackrf, limesuite, airspyhf, uhd, uhdfpga, soapysdr, soapyremote]
+        after: [apt, libdab, mbelib, serialdv, dsdcc, codec2, sgp4, cspice, inmarsatc, cm265cc, libsigmf, airspy, rtlsdr, pluto, bladerf, hackrf, limesuite, airspyhf, uhd, uhdfpga, soapysdr, soapyremote]
         cmake-parameters:
             - -DDEBUG_OUTPUT=OFF
             - -DBUILD_TYPE=RELEASE
@@ -175,6 +175,7 @@ parts:
             - -DMBE_DIR=$SNAPCRAFT_STAGE/opt/install/sdrangel
             - -DCODEC2_DIR=$SNAPCRAFT_STAGE/opt/install/sdrangel
             - -DSGP4_DIR=$SNAPCRAFT_STAGE/opt/install/sdrangel
+            - -DCSPICE_DIR=$SNAPCRAFT_STAGE/opt/install/sdrangel
             - -DINMARSATC_DIR=$SNAPCRAFT_STAGE/opt/install/sdrangel
             - -DLIBSIGMF_DIR=$SNAPCRAFT_STAGE/opt/install/sdrangel
             - -DDAB_DIR=$SNAPCRAFT_STAGE/opt/install/sdrangel
@@ -476,6 +477,15 @@ parts:
         cmake-parameters:
             - -DCMAKE_INSTALL_PREFIX=/opt/install/sdrangel
 
+    cspice:
+        plugin: cmake
+        source: https://github.com/srcejon/cspice-cmake
+        source-type: git
+        source-tag: msvc
+        cmake-parameters:
+            - -DCMAKE_INSTALL_PREFIX=/opt/install/sdrangel
+            - -DCSPICE_BUILD_STATIC_LIBRARY=OFF
+
     inmarsatc:
         plugin: cmake
         source: https://github.com/srcejon/inmarsatc.git
@@ -559,6 +569,7 @@ parts:
             - libstdc++6
         cmake-parameters:
             - -DCMAKE_INSTALL_PREFIX=/opt/install/sdrangel
+            - -DENABLE_SIMD_FLAGS=SSE4.2
 
     airspyhf:
         plugin: cmake

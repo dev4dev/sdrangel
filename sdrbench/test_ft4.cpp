@@ -1,0 +1,283 @@
+///////////////////////////////////////////////////////////////////////////////////
+// Copyright (C) 2023 Daniele Forsi <iu5hkx@gmail.com>                           //
+// Copyright (C) 2026 Edouard Griffiths, F4EXB <f4exb06@gmail.com>               //
+//                                                                               //
+// This program is free software; you can redistribute it and/or modify          //
+// it under the terms of the GNU General Public License as published by          //
+// the Free Software Foundation as version 3 of the License, or                  //
+// (at your option) any later version.                                           //
+//                                                                               //
+// This program is distributed in the hope that it will be useful,               //
+// but WITHOUT ANY WARRANTY; without even the implied warranty of                //
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the                  //
+// GNU General Public License V3 for more details.                               //
+//                                                                               //
+// You should have received a copy of the GNU General Public License             //
+// along with this program. If not, see <http://www.gnu.org/licenses/>.          //
+///////////////////////////////////////////////////////////////////////////////////
+
+#include <iostream>
+#include <fstream>
+#include <map>
+#include <string>
+#include <vector>
+#include <cstdint>
+#include <cstdio>
+
+#include "mainbench.h"
+#include "dsp/wavfilerecord.h"
+
+#include <QMutex>
+
+#ifndef HAS_FT8
+void MainBench::testFT4(const QString& wavFile, const QString& argsStr)
+{
+    (void) wavFile;
+    (void) argsStr;
+    qWarning("MainBench::testFT4: this version has no FT8/FT4 support");
+}
+#else
+
+#include "ft8/ft4.h"
+#include "ft8/packing.h"
+
+class TestFT4Callback : public FT8::CallbackInterface
+{
+public:
+    virtual int hcb(
+        int *a91,
+        float hz0,
+        float off,
+        const char *comment,
+        float snr,
+        int pass,
+        int correct_bits
+    );
+    virtual QString get_name();
+    const std::map<std::string, bool>& getMsgMap() {
+        return cycle_already;
+    }
+private:
+    QMutex cycle_mu;
+    std::map<std::string, bool> cycle_already;
+    FT8::Packing packing;
+};
+
+
+int TestFT4Callback::hcb(
+    int *a91,
+    float hz0,
+    float off,
+    const char *comment,
+    float snr,
+    int pass,
+    int correct_bits
+)
+{
+    std::string call1;
+    std::string call2;
+    std::string loc;
+    std::string type;
+    std::string msg = packing.unpack(a91, call1, call2, loc, type);
+
+    cycle_mu.lock();
+
+    if (cycle_already.count(msg) > 0)
+    {
+        // already decoded this message on this cycle
+        cycle_mu.unlock();
+        return 1; // 1 => already seen, don't subtract.
+    }
+
+    cycle_already[msg] = true;
+
+    cycle_mu.unlock();
+
+    qDebug("TestFT4Callback::hcb: %3s %d %3d %3d %5.2f %6.1f %s [%s:%s:%s] (%s)",
+        type.c_str(),
+        pass,
+        (int)snr,
+        correct_bits,
+        off - 0.5,
+        hz0,
+        msg.c_str(),
+        call1.c_str(),
+        call2.c_str(),
+        loc.c_str(),
+        comment
+    );
+    fflush(stdout);
+
+    return 2; // 2 => new decode, do subtract.
+}
+
+QString TestFT4Callback::get_name()
+{
+    return "test";
+}
+
+// The sdrbench/samples/ft8/20260304_180052.wav file should contain the following 7 messages
+// according to JTDX 2.2.159 decode:
+// 180052 -10  0.2  728 : CQ YU7ZZ KN05              Serbia
+// 180052  -5 -0.0  871 : CQ R3YBG KO73              EU Russia
+// 180052 -13 -0.2 1357 : AO5SQ EA3HKA JN11          Spain
+// 180052 -11  0.0 1508 : CQ PA8DC JO21              Netherlands
+// 180052  -5  0.3 1922 : II3WOG GI0WHI IO74         N. Ireland
+// 180052   0  0.2 1952 : W4WWQ 9A6T -11             Croatia
+// 180052 -16 -0.0 2404 : CQ LA1PHA JP76             Norway
+
+void MainBench::testFT4(const QString& wavFile, const QString& argsStr)
+{
+    int nthreads = 8;    // number of threads (default)
+    double budget = 2.5; // compute for this many seconds per cycle (default)
+    // 3,0.5 combinaion may be enough
+
+    QStringList argElements = argsStr.split(','); // comma separated list of arguments
+
+    for (int i = 0; i < argElements.size(); i++)
+    {
+        const QString& argStr = argElements.at(i);
+        bool ok;
+
+        if (i == 0) // first is the number of threads (integer)
+        {
+            int nthreads_x = argStr.toInt(&ok);
+
+            if (ok) {
+                nthreads = nthreads_x;
+            }
+        }
+
+        if (i == 1) // second is the time budget in seconds (double)
+        {
+            double budget_x = argStr.toDouble(&ok);
+
+            if (ok) {
+                budget = budget_x;
+            }
+        }
+    }
+
+    qDebug("MainBench::testFT4: start nthreads: %d budget: %fs", nthreads, budget);
+    int hints[2] = { 2, 0 }; // CQ
+    TestFT4Callback testft4Callback;
+
+    std::ifstream wfile;
+
+#ifdef Q_OS_WIN
+	wfile.open(wavFile.toStdWString().c_str(), std::ios::binary | std::ios::ate);
+#else
+	wfile.open(wavFile.toStdString().c_str(), std::ios::binary | std::ios::ate);
+#endif
+    WavFileRecord::Header header;
+    wfile.seekg(0, std::ios_base::beg);
+    bool headerOK = WavFileRecord::readHeader(wfile, header, false);
+
+    if (!headerOK)
+    {
+        qDebug("MainBench::testFT4: test file is not a wave file");
+        return;
+    }
+
+    if (header.m_sampleRate != 12000)
+    {
+        qDebug("MainBench::testFT4: wave file sample rate is not 12000 S/s");
+        return;
+    }
+
+    if (header.m_bitsPerSample != 16)
+    {
+        qDebug("MainBench::testFT4: sample size is not 16 bits");
+        return;
+    }
+
+    if (header.m_audioFormat != 1)
+    {
+        qDebug("MainBench::testFT4: wav file format is not PCM");
+        return;
+    }
+
+    if (header.m_dataHeader.m_size != 180000)
+    {
+        qDebug("MainBench::testFT4: wave file size is not 7.5s at 12000 S/s");
+        return;
+    }
+
+    const int bufsize = 1000;
+    int16_t buffer[bufsize];
+    std::vector<float> samples;
+    uint32_t remainder = header.m_dataHeader.m_size;
+
+    while (remainder != 0)
+    {
+        wfile.read((char *) buffer, bufsize*2);
+
+        for (int i = 0; i < bufsize; i++) {
+            samples.push_back(buffer[i] / 32768.0f);
+        }
+
+        remainder -= bufsize*2;
+    }
+
+    wfile.close();
+
+    FT8::FT4Decoder decoder;
+    decoder.getParams().nthreads = nthreads;
+    decoder.getParams().use_osd = 1;
+    decoder.getParams().osd_depth = 3; // OSD candidates must be in top 3 to be considered
+    decoder.getParams().osd_ldpc_thresh = 75;  // Require at least 75/83 correct LDPC bits before OSD
+    decoder.getParams().subtract_edge_symbols = 0; // Experimental: model pre/post ramp symbols in subtraction
+
+    decoder.entry(
+        samples.data(),
+        samples.size(),
+        0.5 * header.m_sampleRate,
+        header.m_sampleRate,
+        150,
+        3600, // 2900,
+        hints,
+        hints,
+        budget,
+        budget,
+        &testft4Callback,
+        0,
+        (struct FT8::cdecode *) nullptr
+    );
+
+    decoder.wait(budget + 1.0); // add one second to budget to force quit threads
+    const std::map<std::string, bool>& msgMap = testft4Callback.getMsgMap();
+    qDebug("MainBench::testFT4: done %lu decodes", msgMap.size());
+    qDebug("MainBench::testFT4: messages:");
+    for (const auto &msg : msgMap)
+    {
+        qDebug("MainBench::testFT4: %s", qPrintable(QString::fromStdString(msg.first)));
+    }
+
+    if (msgMap.size() != 7)
+    {
+        qDebug("MainBench::testFT4: failed: invalid size: %lu expected 7", msgMap.size());
+        return;
+    }
+
+    QStringList messages = {
+        "AO5SQ EA3HKA JN11",
+        "CQ LA1PHA JP76",
+        "CQ PA8DC JO21",
+        "CQ R3YBG KO73",
+        "CQ YU7ZZ KN05",
+        "II3WOG GI0WHI IO74",
+        "W4WWQ 9A6T -11"
+    };
+
+    for (const auto &msg : messages)
+    {
+        if (msgMap.count(msg.toStdString()) != 1)
+        {
+            qDebug("MainBench::testFT4: failed: key: %s", qPrintable(msg));
+            return;
+        }
+    }
+
+    qDebug("MainBench::testFT4: success");
+}
+#endif

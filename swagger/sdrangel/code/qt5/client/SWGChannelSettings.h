@@ -59,6 +59,10 @@
 #include "SWGLocalSourceSettings.h"
 #include "SWGM17DemodSettings.h"
 #include "SWGM17ModSettings.h"
+#include "SWGMeshtasticDemodSettings.h"
+#include "SWGMeshtasticModSettings.h"
+#include "SWGMeshcoreDemodSettings.h"
+#include "SWGMeshcoreModSettings.h"
 #include "SWGNFMDemodSettings.h"
 #include "SWGNFMModSettings.h"
 #include "SWGNavtexDemodSettings.h"
@@ -220,6 +224,18 @@ public:
 
     SWGM17ModSettings* getM17ModSettings();
     void setM17ModSettings(SWGM17ModSettings* m17_mod_settings);
+
+    SWGMeshtasticDemodSettings* getMeshtasticDemodSettings();
+    void setMeshtasticDemodSettings(SWGMeshtasticDemodSettings* meshtastic_demod_settings);
+
+    SWGMeshtasticModSettings* getMeshtasticModSettings();
+    void setMeshtasticModSettings(SWGMeshtasticModSettings* meshtastic_mod_settings);
+
+    SWGMeshcoreDemodSettings* getMeshcoreDemodSettings();
+    void setMeshcoreDemodSettings(SWGMeshcoreDemodSettings* meshcore_demod_settings);
+
+    SWGMeshcoreModSettings* getMeshcoreModSettings();
+    void setMeshcoreModSettings(SWGMeshcoreModSettings* meshcore_mod_settings);
 
     SWGNavtexDemodSettings* getNavtexDemodSettings();
     void setNavtexDemodSettings(SWGNavtexDemodSettings* navtex_demod_settings);
@@ -422,6 +438,18 @@ private:
 
     SWGM17ModSettings* m17_mod_settings;
     bool m_m17_mod_settings_isSet;
+
+    SWGMeshtasticDemodSettings* meshtastic_demod_settings;
+    bool m_meshtastic_demod_settings_isSet;
+
+    SWGMeshtasticModSettings* meshtastic_mod_settings;
+    bool m_meshtastic_mod_settings_isSet;
+
+    SWGMeshcoreDemodSettings* meshcore_demod_settings;
+    bool m_meshcore_demod_settings_isSet;
+
+    SWGMeshcoreModSettings* meshcore_mod_settings;
+    bool m_meshcore_mod_settings_isSet;
 
     SWGNavtexDemodSettings* navtex_demod_settings;
     bool m_navtex_demod_settings_isSet;

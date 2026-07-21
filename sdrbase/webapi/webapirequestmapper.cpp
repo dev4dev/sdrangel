@@ -4625,6 +4625,18 @@ bool WebAPIRequestMapper::getChannelSettings(
             channelSettings->getM17ModSettings()->init();
             channelSettings->getM17ModSettings()->fromJsonObject(settingsJsonObject);
         }
+        else if (channelSettingsKey == "MeshtasticDemodSettings")
+        {
+            channelSettings->setMeshtasticDemodSettings(new SWGSDRangel::SWGMeshtasticDemodSettings());
+            channelSettings->getMeshtasticDemodSettings()->init();
+            channelSettings->getMeshtasticDemodSettings()->fromJsonObject(settingsJsonObject);
+        }
+        else if (channelSettingsKey == "MeshtasticModSettings")
+        {
+            channelSettings->setMeshtasticModSettings(new SWGSDRangel::SWGMeshtasticModSettings());
+            channelSettings->getMeshtasticModSettings()->init();
+            channelSettings->getMeshtasticModSettings()->fromJsonObject(settingsJsonObject);
+        }
         else if (channelSettingsKey == "NFMDemodSettings")
         {
             channelSettings->setNfmDemodSettings(new SWGSDRangel::SWGNFMDemodSettings());
@@ -5262,6 +5274,11 @@ bool WebAPIRequestMapper::getFeatureSettings(
             featureSettings->setDemodAnalyzerSettings(new SWGSDRangel::SWGDemodAnalyzerSettings());
             featureSettings->getDemodAnalyzerSettings()->fromJsonObject(settingsJsonObject);
         }
+        else if (featureSettingsKey == "FreqDisplaySettings")
+        {
+            featureSettings->setFreqDisplaySettings(new SWGSDRangel::SWGFreqDisplaySettings());
+            featureSettings->getFreqDisplaySettings()->fromJsonObject(settingsJsonObject);
+        }
         else if (featureSettingsKey == "JogdialControllerSettings")
         {
             featureSettings->setJogdialControllerSettings(new SWGSDRangel::SWGJogdialControllerSettings());
@@ -5676,6 +5693,7 @@ void WebAPIRequestMapper::resetFeatureSettings(SWGSDRangel::SWGFeatureSettings& 
     featureSettings.setAisSettings(nullptr);
     featureSettings.setAntennaToolsSettings(nullptr);
     featureSettings.setAprsSettings(nullptr);
+    featureSettings.setFreqDisplaySettings(nullptr);
     featureSettings.setGs232ControllerSettings(nullptr);
     featureSettings.setMapSettings(nullptr);
     featureSettings.setPerTesterSettings(nullptr);
@@ -5693,6 +5711,7 @@ void WebAPIRequestMapper::resetFeatureReport(SWGSDRangel::SWGFeatureReport& feat
     featureReport.cleanup();
     featureReport.setFeatureType(nullptr);
     featureReport.setAfcReport(nullptr);
+    featureReport.setFreqDisplayReport(nullptr);
     featureReport.setGs232ControllerReport(nullptr);
     featureReport.setPerTesterReport(nullptr);
     featureReport.setRigCtlServerReport(nullptr);
@@ -5719,4 +5738,3 @@ void WebAPIRequestMapper::resetFeatureActions(SWGSDRangel::SWGFeatureActions& fe
     featureActions.setStarTrackerActions(nullptr);
     featureActions.setVorLocalizerActions(nullptr);
 }
-

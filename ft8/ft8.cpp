@@ -47,78 +47,6 @@
 
 namespace FT8 {
 
-//
-// return a Hamming window of length n.
-//
-std::vector<float> hamming(int n)
-{
-    std::vector<float> h(n);
-
-    for (int k = 0; k < n; k++) {
-        h[k] = 0.54 - 0.46 * cos(2 * M_PI * k / (n - 1.0));
-    }
-
-    return h;
-}
-
-//
-// blackman window
-//
-std::vector<float> blackman(int n)
-{
-    std::vector<float> h(n);
-
-    for (int k = 0; k < n; k++) {
-        h[k] = 0.42 - 0.5 * cos(2 * M_PI * k / n) + 0.08 * cos(4 * M_PI * k / n);
-    }
-
-    return h;
-}
-
-//
-// symmetric blackman window
-//
-std::vector<float> sym_blackman(int n)
-{
-    std::vector<float> h(n);
-
-    for (int k = 0; k < (n / 2) + 1; k++) {
-        h[k] = 0.42 - 0.5 * cos(2 * M_PI * k / n) + 0.08 * cos(4 * M_PI * k / n);
-    }
-
-    for (int k = n - 1; k >= (n / 2) + 1; --k) {
-        h[k] = h[(n - 1) - k];
-    }
-
-    return h;
-}
-
-//
-// blackman-harris window
-//
-std::vector<float> blackmanharris(int n)
-{
-    float a0 = 0.35875;
-    float a1 = 0.48829;
-    float a2 = 0.14128;
-    float a3 = 0.01168;
-    std::vector<float> h(n);
-
-    for (int k = 0; k < n; k++)
-    {
-        // symmetric
-        h[k] = a0 - a1 * cos(2 * M_PI * k / (n - 1)) + a2 * cos(4 * M_PI * k / (n - 1)) - a3 * cos(6 * M_PI * k / (n - 1));
-        // periodic
-        // h[k] =
-        //  a0
-        //  - a1 * cos(2 * M_PI * k / n)
-        //  + a2 * cos(4 * M_PI * k / n)
-        //  - a3 * cos(6 * M_PI * k / n);
-    }
-
-    return h;
-}
-
 // a-priori probability of each of the 174 LDPC codeword
 // bits being one. measured from reconstructed correct
 // codewords, into ft8bits, then python bprob.py.
@@ -148,12 +76,12 @@ FT8::FT8(
     float max_hz,
     int start,
     int rate,
-    int hints1[],
-    int hints2[],
+    const int hints1[],
+    const int hints2[],
     double deadline,
     double final_deadline,
     CallbackInterface *cb,
-    std::vector<cdecode> prevdecs,
+    const std::vector<cdecode> &prevdecs,
     FFTEngine *fftEngine
 )
 {
@@ -196,7 +124,7 @@ void FT8::start_work()
 
 // strength of costas block of signal with tone 0 at bi0,
 // and symbol zero at si0.
-float FT8::one_coarse_strength(const FFTEngine::ffts_t &bins, int bi0, int si0)
+float FT8::one_coarse_strength(const FFTEngine::ffts_t &bins, int bi0, int si0) const
 {
     int costas[] = {3, 1, 4, 0, 6, 5, 2};
 
@@ -296,7 +224,7 @@ float FT8::one_coarse_strength(const FFTEngine::ffts_t &bins, int bi0, int si0)
 // return symbol length in samples at the given rate.
 // insist on integer symbol lengths so that we can
 // use whole FFT bins.
-int FT8::blocksize(int rate)
+int FT8::blocksize(int rate) const
 {
     // FT8 symbol length is 1920 at 12000 samples/second.
     int xblock = (1920*rate) / 12000;
@@ -310,7 +238,7 @@ int FT8::blocksize(int rate)
 // look for potential psignals by searching FFT bins for Costas symbol
 // blocks. returns a vector of candidate positions.
 //
-std::vector<Strength> FT8::coarse(const FFTEngine::ffts_t &bins, int si0, int si1)
+std::vector<Strength> FT8::coarse(const FFTEngine::ffts_t &bins, int si0, int si1) const
 {
     int block = blocksize(rate_);
     int nbins = bins[0].size();
@@ -458,7 +386,7 @@ std::vector<float> FT8::reduce_rate(
 
 void FT8::go(int npasses)
 {
-    if (0)
+    if (false)
     {
         fprintf(stderr, "go: %.0f .. %.0f, %.0f, rate=%d\n",
                 min_hz_, max_hz_, max_hz_ - min_hz_, rate_);
@@ -1196,7 +1124,7 @@ FFTEngine::ffts_t FT8::extract(const std::vector<float> &samples200, float, int 
 //
 // m79 is a 79x8 array of complex.
 //
-FFTEngine::ffts_t FT8::un_gray_code_c(const FFTEngine::ffts_t &m79)
+FFTEngine::ffts_t FT8::un_gray_code_c(const FFTEngine::ffts_t &m79) const
 {
     FFTEngine::ffts_t m79a(79);
     int map[] = {0, 1, 3, 2, 6, 4, 5, 7};
@@ -1216,7 +1144,7 @@ FFTEngine::ffts_t FT8::un_gray_code_c(const FFTEngine::ffts_t &m79)
 //
 // m79 is a 79x8 array of float.
 //
-std::vector<std::vector<float>> FT8::un_gray_code_r(const std::vector<std::vector<float>> &m79)
+std::vector<std::vector<float>> FT8::un_gray_code_r(const std::vector<std::vector<float>> &m79) const
 {
     std::vector<std::vector<float>> m79a(79);
     int map[] = {0, 1, 3, 2, 6, 4, 5, 7};
@@ -1263,7 +1191,7 @@ std::vector<std::vector<float>> FT8::un_gray_code_r_gen(const std::vector<std::v
 // normalize levels by windowed median.
 // this helps, but why?
 //
-std::vector<std::vector<float>> FT8::convert_to_snr(const std::vector<std::vector<float>> &m79)
+std::vector<std::vector<float>> FT8::convert_to_snr(const std::vector<std::vector<float>> &m79) const
 {
     if (params.snr_how < 0 || params.snr_win < 0) {
         return m79;
@@ -1353,7 +1281,7 @@ std::vector<std::vector<float>> FT8::convert_to_snr(const std::vector<std::vecto
 //
 std::vector<std::vector<std::complex<float>>> FT8::c_convert_to_snr(
     const std::vector<std::vector<std::complex<float>>> &m79
-)
+) const
 {
     if (params.snr_how < 0 || params.snr_win < 0) {
         return m79;
@@ -1626,7 +1554,7 @@ void FT8::make_stats_gen(
 // number of cycles and thus preserves phase from one symbol to the
 // next.
 //
-std::vector<std::vector<float>> FT8::soft_c2m(const FFTEngine::ffts_t &c79)
+std::vector<std::vector<float>> FT8::soft_c2m(const FFTEngine::ffts_t &c79) const
 {
     std::vector<std::vector<float>> m79(79);
     std::vector<float> raw_phases(79); // of strongest tone in each symbol time
@@ -1738,8 +1666,9 @@ std::vector<std::vector<float>> FT8::soft_c2m(const FFTEngine::ffts_t &c79)
 //
 // returns log-likelihood, zero is positive, one is negative.
 //
+// Works for all FT modes with 174 bits, by looking up apriori probabilities in the same table.
 float FT8::bayes(
-    FT8Params& params,
+    const FT8Params& params,
     float best_zero,
     float best_one,
     int lli,
@@ -1758,21 +1687,8 @@ float FT8::bayes(
         pone = apriori174[lli];
     }
 
-    //
-    // Bayes combining rule normalization from:
-    // http://cs.wellesley.edu/~anderson/writing/naive-bayes.pdf
-    //
-    // a = P(zero)P(e0|zero)P(e1|zero)
-    // b = P(one)P(e0|one)P(e1|one)
-    // p = a / (a + b)
-    //
-    // also see Mark Owen's book Practical Signal Processing,
-    // Chapter 6.
-    //
-
     // zero
     float a = pzero * bests.problt(best_zero) * (1.0 - all.problt(best_one));
-    // printf("FT8::bayes: a: %f bp: %f ap: %f \n", a, bests.problt(best_zero), all.problt(best_one));
 
     if (params.bayes_how == 1) {
         a *= all.problt(all.mean() + (best_zero - best_one));
@@ -1780,7 +1696,6 @@ float FT8::bayes(
 
     // one
     float b = pone * bests.problt(best_one) * (1.0 - all.problt(best_zero));
-    // printf("FT8::bayes: b: %f bp: %f ap: %f \n", b, bests.problt(best_one), all.problt(best_zero));
 
     if (params.bayes_how == 1) {
         b *= all.problt(all.mean() + (best_one - best_zero));
@@ -1793,8 +1708,6 @@ float FT8::bayes(
     } else {
         p = a / (a + b);
     }
-
-    // printf("FT8::bayes: all.mean: %f a: %f b: %f p: %f\n", all.mean(), a, b, p);
 
     if (1 - p == 0.0) {
         ll = maxlog;
@@ -1816,7 +1729,7 @@ float FT8::bayes(
 //
 // c79 is 79x8 complex tones, before un-gray-coding.
 //
-void FT8::soft_decode(const FFTEngine::ffts_t &c79, float ll174[])
+void FT8::soft_decode(const FFTEngine::ffts_t &c79, float ll174[]) const
 {
     std::vector<std::vector<float>> m79(79);
     // m79 = absolute values of c79.
@@ -1936,7 +1849,7 @@ void FT8::soft_decode(const FFTEngine::ffts_t &c79, float ll174[])
 // ll174 is the resulting 174 soft bits of payload
 // used in FT-chirp modulation scheme - generalized to any number of symbol bits
 //
-void FT8::soft_decode_mags(FT8Params& params, const std::vector<std::vector<float>>& mags_, int nbSymbolBits, float ll174[])
+void FT8::soft_decode_mags(const FT8Params& params, const std::vector<std::vector<float>>& mags_, int nbSymbolBits, float ll174[])
 {
     if ((nbSymbolBits > 16) || (nbSymbolBits < 1)) {
         return;
@@ -2015,7 +1928,7 @@ void FT8::soft_decode_mags(FT8Params& params, const std::vector<std::vector<floa
 //
 // c79 is 79x8 complex tones, before un-gray-coding.
 //
-void FT8::c_soft_decode(const FFTEngine::ffts_t &c79x, float ll174[])
+void FT8::c_soft_decode(const FFTEngine::ffts_t &c79x, float ll174[]) const
 {
     FFTEngine::ffts_t c79 = c_convert_to_snr(c79x);
     int costas[] = {3, 1, 4, 0, 6, 5, 2};
@@ -2253,7 +2166,7 @@ void FT8::set_ones_zeroes(int ones[], int zeroes[], int nbBits, int bitIndex)
 // each returned element is < 0 for 1, > 0 for zero,
 // scaled by str.
 //
-std::vector<float> FT8::extract_bits(const std::vector<int> &syms, const std::vector<float> str)
+std::vector<float> FT8::extract_bits(const std::vector<int> &syms, const std::vector<float>& str) const
 {
     // assert(syms.size() == 79);
     // assert(str.size() == 79);
@@ -2283,7 +2196,7 @@ std::vector<float> FT8::extract_bits(const std::vector<int> &syms, const std::ve
 void FT8::soft_decode_pairs(
     const FFTEngine::ffts_t &m79x,
     float ll174[]
-)
+) const
 {
     FFTEngine::ffts_t m79 = c_convert_to_snr(m79x);
 
@@ -2415,7 +2328,7 @@ void FT8::soft_decode_pairs(
 void FT8::soft_decode_triples(
     const FFTEngine::ffts_t &m79x,
     float ll174[]
-)
+) const
 {
     FFTEngine::ffts_t m79 = c_convert_to_snr(m79x);
 
@@ -2672,7 +2585,7 @@ std::vector<std::complex<float>> FT8::fbandpass(
     float low_inner,  // start of flat area
     float high_inner, // end of flat area
     float high_outer  // end of transition
-)
+) const
 {
     // assert(low_outer <= low_inner);
     // assert(low_inner <= high_inner);
@@ -2877,7 +2790,7 @@ int FT8::one_iter(const std::vector<float> &samples200, int best_off, float hz_f
 // estimate SNR, yielding numbers vaguely similar to WSJT-X.
 // m79 is a 79x8 complex FFT output.
 //
-float FT8::guess_snr(const FFTEngine::ffts_t &m79)
+float FT8::guess_snr(const FFTEngine::ffts_t &m79) const
 {
     int costas[] = {3, 1, 4, 0, 6, 5, 2};
     float pnoises = 0;
@@ -2948,7 +2861,7 @@ float FT8::guess_snr(const FFTEngine::ffts_t &m79)
 // adj_off is the amount to change the offset, in samples.
 // should be subtracted from offset.
 //
-void FT8::fine(const FFTEngine::ffts_t &m79, int, float &adj_hz, float &adj_off)
+void FT8::fine(const FFTEngine::ffts_t &m79, int, float &adj_hz, float &adj_off) const
 {
     adj_hz = 0.0;
     adj_off = 0.0;
@@ -3546,7 +3459,7 @@ void FT8::subtract(
 //
 int FT8::try_decode(
     const std::vector<float> &samples200,
-    float ll174[174],
+    const float ll174[174],
     float best_hz,
     int best_off_samples,
     float hz0_for_cb,
@@ -3653,7 +3566,7 @@ int FT8::try_decode(
 // used to help ensure that subtraction subtracts
 // at the right place.
 //
-std::vector<int> FT8::recode(int a174[])
+std::vector<int> FT8::recode(const int a174[]) const
 {
     int i174 = 0;
     int costas[] = {3, 1, 4, 0, 6, 5, 2};
@@ -3707,8 +3620,8 @@ void FT8Decoder::entry(
     int rate,
     float min_hz,
     float max_hz,
-    int hints1[],
-    int hints2[],
+    const int hints1[],
+    const int hints2[],
     double time_left,
     double total_time_left,
     CallbackInterface *cb,

@@ -20,6 +20,14 @@ if (ENABLE_CHANNELTX_MODCHIRPCHAT)
     add_subdirectory(modchirpchat)
 endif()
 
+if (ENABLE_CHANNELTX_MODMESHTASTIC)
+    add_subdirectory(modmeshtastic)
+endif()
+
+if (ENABLE_CHANNELTX_MODMESHCORE)
+    add_subdirectory(modmeshcore)
+endif()
+
 if (ENABLE_CHANNELTX_MODNFM)
     add_subdirectory(modnfm)
 endif()
@@ -70,7 +78,7 @@ find_package(FFmpeg COMPONENTS AVCODEC AVFORMAT AVUTIL SWSCALE)
 if (ENABLE_CHANNELTX_MODDATV AND FFMPEG_FOUND AND OpenCV_FOUND)
     add_subdirectory(moddatv)
 else()
-    message(STATUS "Not building moddatv (ENABLE_CHANNELTX_MODDATV=${ENABLE_CHANNELTX_MODDATV} FFMPEG_FOUND=${FFMPEG_FOUND})")
+    message(STATUS "Not building moddatv (ENABLE_CHANNELTX_MODDATV=${ENABLE_CHANNELTX_MODDATV} FFMPEG_FOUND=${FFMPEG_FOUND} OpenCV_FOUND=${OpenCV_FOUND})")
 endif()
 
 if (ENABLE_CHANNELTX_MODFREEDV AND CODEC2_FOUND)

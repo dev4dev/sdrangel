@@ -9,10 +9,12 @@ set(sdrbench_SOURCES
     parserbench.cpp
     test_golay2312.cpp
     test_ft8.cpp
+    test_ft4.cpp
     test_callsign.cpp
     test_ft8protocols.cpp
     test_fftrrc.cpp
     test_firrrc.cpp
+    test_meshtastic.cpp
 )
 
 set(sdrbench_HEADERS
@@ -30,6 +32,7 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/exports
     ${CMAKE_SOURCE_DIR}/sdrbase
     ${CMAKE_SOURCE_DIR}/logging
+    ${CMAKE_SOURCE_DIR}/modemmeshtastic
     ${CMAKE_SOURCE_DIR}
 )
 
@@ -44,6 +47,7 @@ target_link_libraries(sdrbench
     Qt::Gui
     sdrbase
     logging
+    modemmeshtastic
     ${sdrbench_FT8_LIB}
 )
 

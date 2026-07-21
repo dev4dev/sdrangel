@@ -37,6 +37,7 @@ const QMap<QString, QString> WebAPIUtils::m_channelURIToSettingsKey = {
     {"sdrangel.channel.chanalyzerng", "ChannelAnalyzerSettings"}, // remap
     {"org.f4exb.sdrangelove.channel.chanalyzer", "ChannelAnalyzerSettings"}, // remap
     {"sdrangel.channel.chirpchatdemod", "ChirpChatDemodSettings"},
+    {"sdrangel.channel.meshtasticdemod", "ChirpChatDemodSettings"}, // alias: Meshtastic uses ChirpChatDemodSettings schema
     {"sdrangel.channel.modchirpchat", "ChirpChatModSettings"},
     {"sdrangel.channel.demodatv", "ATVDemodSettings"},
     {"sdrangel.channel.demoddatv", "DATVDemodSettings"},
@@ -162,6 +163,7 @@ const QMap<QString, QString> WebAPIUtils::m_channelTypeToSettingsKey = {
     {"BFMDemod", "BFMDemodSettings"},
     {"ChannelAnalyzer", "ChannelAnalyzerSettings"},
     {"ChirpChatDemod", "ChirpChatDemodSettings"},
+    {"MeshtasticDemod", "ChirpChatDemodSettings"}, // alias: Meshtastic uses ChirpChatDemodSettings schema
     {"ChirpChatMod", "ChirpChatModSettings"},
     {"ChannelPower", "ChannelPowerSettings"},
     {"DATVDemod", "DATVDemodSettings"},
@@ -319,6 +321,7 @@ const QMap<QString, QString> WebAPIUtils::m_featureTypeToSettingsKey = {
     {"AntennaTools", "AntennaToolsSettings"},
     {"APRS", "APRSSettings"},
     {"DemodAnalyzer", "DemodAnalyzerSettings"},
+    {"FreqDisplay", "FreqDisplaySettings"},
     {"JogdialController", "JogdialControllerSettings"},
     {"GS232Controller", "GS232ControllerSettings"}, // a.k.a Rotator Controller
     {"LimeRFE", "LimeRFESettings"},
@@ -359,6 +362,7 @@ const QMap<QString, QString> WebAPIUtils::m_featureURIToSettingsKey = {
     {"sdrangel.feature.antennatools", "AntennaToolsSettings"},
     {"sdrangel.feature.aprs", "APRSSettings"},
     {"sdrangel.feature.demodanalyzer", "DemodAnalyzerSettings"},
+    {"sdrangel.feature.freqdisplay", "FreqDisplaySettings"},
     {"sdrangel.feature.jogdialcontroller", "JogdialControllerSettings"},
     {"sdrangel.feature.gs232controller", "GS232ControllerSettings"},
     {"sdrangel.feature.limerfe", "LimeRFESettings"},

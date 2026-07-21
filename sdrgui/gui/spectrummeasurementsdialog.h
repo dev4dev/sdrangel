@@ -58,6 +58,8 @@ private slots:
     void on_adjChBandwidth_changed(qint64 value);
     void on_harmonics_valueChanged(int value);
     void on_peaks_valueChanged(int value);
+    void on_m1Mask_toggled(bool checked);
+    void on_m2Mask_toggled(bool checked);
 
 signals:
     void updateMeasurements();

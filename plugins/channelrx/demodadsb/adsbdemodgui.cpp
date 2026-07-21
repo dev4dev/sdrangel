@@ -3046,7 +3046,7 @@ void ADSBDemodGUI::handleADSB(
 
     aircraft->m_rxTime = dateTime;
     aircraft->m_updateTime = QDateTime::currentDateTime();
-    QTime time = dateTime.time();
+    QTime time = aircraft->m_updateTime.time();
     aircraft->m_timeItem->setText(QString("%1:%2:%3").arg(time.hour(), 2, 10, QLatin1Char('0')).arg(time.minute(), 2, 10, QLatin1Char('0')).arg(time.second(), 2, 10, QLatin1Char('0')));
     if (df == 17)
     {
@@ -3899,7 +3899,7 @@ void ADSBDemodGUI::decodeCommB(const QByteArray data, const QDateTime dateTime, 
         c[2] = ((data[5] & 0x7) << 3) | ((data[6] >> 5) & 0x7);
         c[3] = ((data[6] & 0x1f) << 1) | ((data[7] >> 7) & 0x1);
         c[4] = ((data[7] >> 1) & 0x1f);
-        c[5] = ((data[7] & 0x1) >> 3) | ((data[8] >> 3) & 0x1f);
+        c[5] = ((data[7] & 0x1) << 5) | ((data[8] >> 3) & 0x1f);
         c[6] = ((data[8] & 0x7) << 3) | ((data[9] >> 5) & 0x7);
         // Map to ASCII
         for (int i = 0; i < 7; i++) {
@@ -3970,7 +3970,7 @@ void ADSBDemodGUI::decodeCommB(const QByteArray data, const QDateTime dateTime, 
         c[2] = ((data[5] & 0x7) << 3) | ((data[6] >> 5) & 0x7);
         c[3] = ((data[6] & 0x1f) << 1) | ((data[7] >> 7) & 0x1);
         c[4] = ((data[7] >> 1) & 0x1f);
-        c[5] = ((data[7] & 0x1) >> 3) | ((data[8] >> 3) & 0x1f);
+        c[5] = ((data[7] & 0x1) << 5) | ((data[8] >> 3) & 0x1f);
         c[6] = ((data[8] & 0x7) << 3) | ((data[9] >> 5) & 0x7);
         c[7] = ((data[9] & 0x1f) << 1) | ((data[10] >> 7) & 0x1);
         c[8] = ((data[10] >> 1) & 0x3f);
@@ -6971,7 +6971,7 @@ ADSBDemodGUI::ADSBDemodGUI(PluginAPI* pluginAPI, DeviceUISet *deviceUISet, Baseb
     int multisamples = MainCore::instance()->getSettings().getMapMultisampling();
     if (multisamples > 0)
     {
-        QSurfaceFormat format;
+        QSurfaceFormat format = QSurfaceFormat::defaultFormat();
         format.setSamples(multisamples);
 #ifdef QT_LOCATION_FOUND
         ui->map->setFormat(format);
@@ -8397,7 +8397,7 @@ void ADSBDemodGUI::handleImportReply(QNetworkReply* reply)
                         }
                         aircraft->m_rxTime = QDateTime::fromSecsSinceEpoch(state[4].toInt());
                         aircraft->m_updateTime = QDateTime::currentDateTime();
-                        QTime time = aircraft->m_rxTime.time();
+                        QTime time = aircraft->m_updateTime.time();
                         aircraft->m_timeItem->setText(QString("%1:%2:%3").arg(time.hour(), 2, 10, QLatin1Char('0')).arg(time.minute(), 2, 10, QLatin1Char('0')).arg(time.second(), 2, 10, QLatin1Char('0')));
                         aircraft->m_adsbFrameCount++;
                         aircraft->m_adsbFrameCountItem->setData(Qt::DisplayRole, aircraft->m_adsbFrameCount);

@@ -27,11 +27,13 @@ bool NCO::m_tableInitialized = false;
 
 void NCO::initTable()
 {
-	if(m_tableInitialized)
+	if (m_tableInitialized) {
 		return;
+	}
 
-	for(int i = 0; i < TableSize; i++)
+	for (unsigned i = 0; i < TableSize; i++) {
 		m_table[i] = cos((2.0 * M_PI * i) / TableSize);
+	}
 
 	m_tableInitialized = true;
 }
@@ -52,7 +54,7 @@ uint64_t NCO::prsg63()
 
 void NCO::setFreq(Real freq, Real sampleRate, bool integerPhase, int ditherBits)
 {
-	m_phaseIncrement = (Phase) std::round((freq * pow(2.0, PhaseBits)) / sampleRate);
+	m_phaseIncrement = (Phase) (qint64) std::round((freq * pow(2.0, PhaseBits)) / sampleRate);
 	if (integerPhase) {
 		m_phaseIncrement &= ~FracMask;
 	}

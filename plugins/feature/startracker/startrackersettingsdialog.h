@@ -23,6 +23,7 @@
 
 #include "ui_startrackersettingsdialog.h"
 #include "startrackersettings.h"
+#include "spiceephemerides.h"
 
 class StarTrackerSettingsDialog : public QDialog {
     Q_OBJECT
@@ -35,10 +36,21 @@ public:
    QList<QString>& m_settingsKeys;
 
 private slots:
+    void on_addEphemeris_clicked();
+    void on_removeEphemeris_clicked();
+    void on_useDefaultEphemeridies_clicked();
+    void on_addSolarSystemBody_clicked();
+    void on_removeSolarSystemBody_clicked();
     void accept();
+    void allDownloadsComplete();
 
 private:
     Ui::StarTrackerSettingsDialog* ui;
+    SpiceEphemerides m_spiceEphemerides;
+
+    QStringList getEphemerides() const;
+    bool downloadEphemerides();
+    void selectSolarSystemBody();
 };
 
 #endif // INCLUDE_STARTRACKERSETTINGSDIALOG_H

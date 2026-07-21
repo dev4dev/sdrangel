@@ -19,8 +19,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # configure version
 set(sdrangel_VERSION_MAJOR "7")
-set(sdrangel_VERSION_MINOR "23")
-set(sdrangel_VERSION_PATCH "2")
+set(sdrangel_VERSION_MINOR "27")
+set(sdrangel_VERSION_PATCH "1")
 set(sdrangel_VERSION_SUFFIX "")
 
 # SDRAngel cmake options
@@ -54,17 +54,10 @@ if(ENABLE_LIBUNWIND AND UNIX AND NOT ANDROID)
     pkg_check_modules(LIBUNWIND QUIET libunwind)
   endif()
 
-  # Fall back to find_library if pkg-config doesn't find it
   if(NOT LIBUNWIND_FOUND)
-    find_library(LIBUNWIND_LIB unwind)
+    find_library(LIBUNWIND_LIB NAMES unwind)
     if(LIBUNWIND_LIB)
       set(LIBUNWIND_LIBRARIES ${LIBUNWIND_LIB})
-      if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64")
-        find_library(LIBUNWIND_ARCH_LIB unwind-x86_64)
-        if(LIBUNWIND_ARCH_LIB)
-          list(APPEND LIBUNWIND_LIBRARIES ${LIBUNWIND_ARCH_LIB})
-        endif()
-      endif()
       set(LIBUNWIND_FOUND TRUE)
     endif()
   endif()
@@ -73,15 +66,33 @@ if(ENABLE_LIBUNWIND AND UNIX AND NOT ANDROID)
     if(NOT LIBUNWIND_LIBRARIES)
       set(LIBUNWIND_LIBRARIES unwind)
     endif()
-    if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64")
-      list(JOIN LIBUNWIND_LIBRARIES ";" _libunwind_libs_joined)
-      if(NOT _libunwind_libs_joined MATCHES "unwind-x86_64")
-        find_library(LIBUNWIND_ARCH_LIB unwind-x86_64)
-        if(LIBUNWIND_ARCH_LIB)
-          list(APPEND LIBUNWIND_LIBRARIES ${LIBUNWIND_ARCH_LIB})
-        else()
-          message(WARNING "libunwind-x86_64 not found; stack traces may fail to link on x86_64.")
+
+	  find_library(LIBUNWIND_ARCH_LIB NAMES unwind-x86_64 unwind-x86 unwind-aarch64 unwind-arm unwind-loongarch64 unwind-ppc64 unwind-s390x)
+
+    if(LIBUNWIND_ARCH_LIB)
+      list(APPEND LIBUNWIND_LIBRARIES ${LIBUNWIND_ARCH_LIB})
+    else()
+      if(PKG_CONFIG_FOUND)
+        pkg_check_modules(LIBUNWIND_GENERIC QUIET libunwind-generic)
+
+        if(LIBUNWIND_GENERIC_FOUND)
+            list(APPEND LIBUNWIND_LIBRARIES ${LIBUNWIND_GENERIC_LIBRARIES})
         endif()
+      endif()
+
+      if(NOT LIBUNWIND_GENERIC_FOUND)
+        find_library(LIBUNWIND_GENERIC NAMES unwind-generic)
+
+        if(LIBUNWIND_GENERIC)
+          list(APPEND LIBUNWIND_LIBRARIES ${LIBUNWIND_GENERIC})
+          set(LIBUNWIND_GENERIC_FOUND TRUE)
+        endif()
+      endif()
+
+      if(LIBUNWIND_GENERIC_FOUND)
+        message(WARNING "libunwind generic library used instead of arch one.")
+      else()
+        message(WARNING "libunwind arch or generic library not found; stack traces may fail to link.")
       endif()
     endif()
     set(HAVE_LIBUNWIND ON)
@@ -113,6 +124,7 @@ option(ENABLE_SOAPYSDR "Enable SoapySDR support" ON)
 option(ENABLE_XTRX "Enable XTRX support" ON)
 option(ENABLE_PACK_MIRSDRAPI "Enable inclusion of the mirsdr-api library - for personal use only" OFF)
 option(ENABLE_USRP "Enable USRP support" ON)
+option(ENABLE_FOBOS "Enable Fobos SDR support" ON)
 
 # Channel Rx enablers
 option(ENABLE_CHANNELRX "Enable channelrx plugins" ON)
@@ -133,6 +145,8 @@ option(ENABLE_CHANNELRX_DEMODM17 "Enable channelrx demodm17 plugin" ON)
 option(ENABLE_CHANNELRX_FILESINK "Enable channelrx filesink plugin" ON)
 option(ENABLE_CHANNELRX_DEMODFREEDV "Enable channelrx demodfreedv plugin" ON)
 option(ENABLE_CHANNELRX_DEMODCHIRPCHAT "Enable channelrx demodchirpchat plugin" ON)
+option(ENABLE_CHANNELRX_DEMODMESHTASTIC "Enable channelrx demodmeshtastic plugin" ON)
+option(ENABLE_CHANNELRX_DEMODMESHCORE "Enable channelrx demodmeshcore plugin" ON)
 option(ENABLE_CHANNELRX_REMOTESINK "Enable channelrx remotesink plugin" ON)
 option(ENABLE_CHANNELRX_REMOTETCPSINK "Enable channelrx remotetcpsink plugin" ON)
 option(ENABLE_CHANNELRX_DEMODSSB "Enable channelrx demodssb plugin" ON)
@@ -171,6 +185,8 @@ option(ENABLE_CHANNELTX_MODPACKET "Enable channeltx modpacket plugin" ON)
 option(ENABLE_CHANNELTX_MODSSB "Enable channeltx modssb plugin" ON)
 option(ENABLE_CHANNELTX_UDPSOURCE "Enable channeltx udpsource plugin" ON)
 option(ENABLE_CHANNELTX_MODCHIRPCHAT "Enable channeltx modchirpchat plugin" ON)
+option(ENABLE_CHANNELTX_MODMESHTASTIC "Enable channeltx modmeshtastic plugin" ON)
+option(ENABLE_CHANNELTX_MODMESHCORE "Enable channeltx modmeshcore plugin" ON)
 option(ENABLE_CHANNELTX_MODWFM "Enable channeltx modwfm plugin" ON)
 option(ENABLE_CHANNELTX_MODATV "Enable channeltx modatv plugin" ON)
 option(ENABLE_CHANNELTX_MOD802.15.4 "Enable channeltx mod802.15.4 plugin" ON)
@@ -209,6 +225,7 @@ option(ENABLE_FEATURE_SKYMAP "Enable feature sky map plugin" ON)
 option(ENABLE_FEATURE_SID "Enable feature sid plugin" ON)
 option(ENABLE_FEATURE_MORSEDECODER "Enable feature morsedecoder plugin" ON)
 option(ENABLE_FEATURE_DENOISER "Enable feature denoiser plugin" ON)
+option(ENABLE_FEATURE_FREQDISPLAY "Enable feature freqdisplay plugin" ON)
 
 # on windows always build external libraries
 if(WIN32)
@@ -405,6 +422,16 @@ elseif (WIN32)
   set(LIBUSB_LIBRARIES "${EXTERNAL_LIBRARY_FOLDER}/libusb/MS64/dll/libusb-1.0.lib" CACHE INTERNAL "")
   set(LIBUSB_DLL_DIR "${EXTERNAL_LIBRARY_FOLDER}/libusb/MS64/dll" CACHE INTERNAL "")
 
+  set(FOBOS_SDR_FOUND ON CACHE INTERNAL "")
+  set(FOBOS_SDR_INCLUDE_DIR "${EXTERNAL_LIBRARY_FOLDER}/fobos-sdr/include" CACHE INTERNAL "")
+  set(FOBOS_SDR_LIBRARY "${EXTERNAL_LIBRARY_FOLDER}/fobos-sdr/lib/fobos_sdr.lib" CACHE INTERNAL "")
+  set(FOBOS_SDR_DLL_DIR "${EXTERNAL_LIBRARY_FOLDER}/fobos-sdr/bin" CACHE INTERNAL "")
+
+  set(FOBOS_REGULAR_FOUND ON CACHE INTERNAL "")
+  set(FOBOS_REGULAR_INCLUDE_DIR "${EXTERNAL_LIBRARY_FOLDER}/fobos-regular/include" CACHE INTERNAL "")
+  set(FOBOS_REGULAR_LIBRARY "${EXTERNAL_LIBRARY_FOLDER}/fobos-regular/lib/fobos.lib" CACHE INTERNAL "")
+  set(FOBOS_REGULAR_DLL_DIR "${EXTERNAL_LIBRARY_FOLDER}/fobos-regular/bin" CACHE INTERNAL "")
+
   if(VS2022 OR VS2019)
     set(OpenCV_DIR "${EXTERNAL_LIBRARY_FOLDER}/opencv4" CACHE INTERNAL "")
   else()
@@ -482,6 +509,7 @@ elseif (WIN32)
     "${EXTERNAL_LIBRARY_FOLDER}/libusb/MS64/dll"
     "${EXTERNAL_LIBRARY_FOLDER}/ffmpeg/bin"
     "${EXTERNAL_LIBRARY_FOLDER}/libsigmf/lib"
+    "${EXTERNAL_LIBRARY_FOLDER}/fobos-sdr/bin"
   )
 elseif(ANDROID)
   set(EXTERNAL_LIBRARY_FOLDER "${CMAKE_SOURCE_DIR}/external/android")
@@ -507,6 +535,14 @@ elseif(ANDROID)
   set(SGP4_FOUND ON CACHE INTERNAL "")
   set(SGP4_INCLUDE_DIR "${EXTERNAL_LIBRARY_FOLDER}/${ANDROID_ABI}/sgp4/include/libsgp4" CACHE INTERNAL "")
   set(SGP4_LIBRARIES "${EXTERNAL_LIBRARY_FOLDER}/${ANDROID_ABI}/sgp4/lib/libsgp4.a" CACHE INTERNAL "")
+
+  set(CSPICE_FOUND ON CACHE INTERNAL "")
+  set(CSPICE_INCLUDE_DIR "${EXTERNAL_LIBRARY_FOLDER}/${ANDROID_ABI}/cspice/include" CACHE INTERNAL "")
+  set(CSPICE_LIBRARIES "${EXTERNAL_LIBRARY_FOLDER}/${ANDROID_ABI}/cspice/lib/libcspice.a" CACHE INTERNAL "")
+
+  set(INMARSATC_FOUND ON CACHE INTERNAL "")
+  set(INMARSATC_INCLUDE_DIR "${EXTERNAL_LIBRARY_FOLDER}/${ANDROID_ABI}/inmarsatc/include" CACHE INTERNAL "")
+  set(INMARSATC_LIBRARIES "${EXTERNAL_LIBRARY_FOLDER}/${ANDROID_ABI}/inmarsatc/lib/libinmarsatc_decoder.so" "${EXTERNAL_LIBRARY_FOLDER}/${ANDROID_ABI}/inmarsatc/lib/libinmarsatc_parser.so" CACHE INTERNAL "")
 
   set(ZLIB_FOUND ON CACHE INTERNAL "")
   set(ZLIB_INCLUDE_DIR "${EXTERNAL_LIBRARY_FOLDER}/${ANDROID_ABI}/zlib/include" CACHE INTERNAL "")
@@ -547,6 +583,10 @@ elseif(ANDROID)
   set(GGMORSE_INCLUDE_DIR "${EXTERNAL_LIBRARY_FOLDER}/${ANDROID_ABI}/ggmorse/include/" CACHE INTERNAL "")
   set(GGMORSE_LIBRARIES "${EXTERNAL_LIBRARY_FOLDER}/${ANDROID_ABI}/ggmorse/lib/static/libggmorse.a" CACHE INTERNAL "")
 
+  set(CM256CC_FOUND ON CACHE INTERNAL "")
+  set(CM256CC_INCLUDE_DIR "${EXTERNAL_LIBRARY_FOLDER}/${ANDROID_ABI}/cm256cc/include/" CACHE INTERNAL "")
+  set(CM256CC_LIBRARIES "${EXTERNAL_LIBRARY_FOLDER}/${ANDROID_ABI}/cm256cc/lib/libcm256cc.so" CACHE INTERNAL "")
+
   set(FLAC_FOUND ON CACHE INTERNAL "")
   set(FLAC_INCLUDE_DIR "${EXTERNAL_LIBRARY_FOLDER}/${ANDROID_ABI}/flac/include/" CACHE INTERNAL "")
   set(FLAC_LIBRARIES "${EXTERNAL_LIBRARY_FOLDER}/${ANDROID_ABI}/flac/lib/libFLAC.so" CACHE INTERNAL "")
@@ -571,10 +611,53 @@ elseif(ANDROID)
   set(LIMESUITE_INCLUDE_DIR "${EXTERNAL_LIBRARY_FOLDER}/${ANDROID_ABI}/limesuite/include/" CACHE INTERNAL "")
   set(LIMESUITE_LIBRARY "${EXTERNAL_LIBRARY_FOLDER}/${ANDROID_ABI}/limesuite/lib/libLimeSuite.a" CACHE INTERNAL "")
 
+  set(OpenCV_FOUND ON CACHE INTERNAL "")
+  set(OpenCV_INCLUDE_DIRS "${EXTERNAL_LIBRARY_FOLDER}/${ANDROID_ABI}/opencv/sdk/native/jni/include/" CACHE INTERNAL "")
+  set(OpenCV_LIBS_DIR "${EXTERNAL_LIBRARY_FOLDER}/${ANDROID_ABI}/opencv/sdk/native/staticlibs/${ANDROID_ABI}")
+  set(OpenCV_LIBS    
+    "${OpenCV_LIBS_DIR}/libopencv_bgsegm.a" 
+    "${OpenCV_LIBS_DIR}/libopencv_calib3d.a" 
+    "${OpenCV_LIBS_DIR}/libopencv_core.a" 
+    "${OpenCV_LIBS_DIR}/libopencv_dnn.a" 
+    "${OpenCV_LIBS_DIR}/libopencv_features2d.a" 
+    "${OpenCV_LIBS_DIR}/libopencv_flann.a" 
+    "${OpenCV_LIBS_DIR}/libopencv_highgui.a" 
+    "${OpenCV_LIBS_DIR}/libopencv_imgcodecs.a" 
+    "${OpenCV_LIBS_DIR}/libopencv_imgproc.a" 
+    "${OpenCV_LIBS_DIR}/libopencv_photo.a" 
+    "${OpenCV_LIBS_DIR}/libopencv_video.a" 
+    "${OpenCV_LIBS_DIR}/libopencv_videoio.a" 
+    "${OpenCV_LIBS_DIR}/libopencv_ximgproc.a" 
+    CACHE INTERNAL "")
+  set(OpenCV_3RDPARTY_LIBS_DIR "${EXTERNAL_LIBRARY_FOLDER}/${ANDROID_ABI}/opencv/sdk/native/3rdparty/libs/${ANDROID_ABI}")
+  set(OpenCV_3RDPARTY_LIBS
+    "${OpenCV_3RDPARTY_LIBS_DIR}/libtegra_hal.a"
+    "${OpenCV_3RDPARTY_LIBS_DIR}/libkleidicv_hal.a"
+    "${OpenCV_3RDPARTY_LIBS_DIR}/libkleidicv_thread.a"
+    "${OpenCV_3RDPARTY_LIBS_DIR}/libkleidicv.a"
+    "${OpenCV_3RDPARTY_LIBS_DIR}/liblibtiff.a"
+    "${OpenCV_3RDPARTY_LIBS_DIR}/liblibjpeg-turbo.a"
+    "${OpenCV_3RDPARTY_LIBS_DIR}/liblibpng.a"
+    "${OpenCV_3RDPARTY_LIBS_DIR}/liblibwebp.a"
+    "${OpenCV_3RDPARTY_LIBS_DIR}/liblibopenjp2.a"
+    "${OpenCV_3RDPARTY_LIBS_DIR}/libIlmImf.a"
+    "${OpenCV_3RDPARTY_LIBS_DIR}/libittnotify.a"
+    "${OpenCV_3RDPARTY_LIBS_DIR}/libcpufeatures.a"
+    "${OpenCV_3RDPARTY_LIBS_DIR}/liblibprotobuf.a"
+  )
+  list(APPEND OpenCV_LIBS ${OpenCV_3RDPARTY_LIBS} ${ZLIB_LIBRARIES})
+  find_library(ANDROID_MEDIANDK_LIBRARY mediandk)
+  if(ANDROID_MEDIANDK_LIBRARY)
+    list(APPEND OpenCV_LIBS "${ANDROID_MEDIANDK_LIBRARY}")
+  else()
+    list(APPEND OpenCV_LIBS mediandk)
+  endif()
+  set(OpenCV_LIBS "${OpenCV_LIBS}" CACHE INTERNAL "")
+
   if (ENABLE_QT6)
     set(ANDROID_EXTRA_LIBS
-      ${EXTERNAL_LIBRARY_FOLDER}/android_openssl/latest/arm64/libssl_1_1.so
-      ${EXTERNAL_LIBRARY_FOLDER}/android_openssl/latest/arm64/libcrypto_1_1.so
+      ${EXTERNAL_LIBRARY_FOLDER}/android_openssl-master/ssl_3/${ANDROID_ABI}/libssl_3.so
+      ${EXTERNAL_LIBRARY_FOLDER}/android_openssl-master/ssl_3/${ANDROID_ABI}/libcrypto_3.so
       ${EXTERNAL_LIBRARY_FOLDER}/${ANDROID_ABI}/ffmpeg/lib/libavcodec.so
       ${EXTERNAL_LIBRARY_FOLDER}/${ANDROID_ABI}/ffmpeg/lib/libavdevice.so
       ${EXTERNAL_LIBRARY_FOLDER}/${ANDROID_ABI}/ffmpeg/lib/libavfilter.so
@@ -587,7 +670,34 @@ elseif(ANDROID)
       ${EXTERNAL_LIBRARY_FOLDER}/${ANDROID_ABI}/dsdcc/lib/libdsdcc.so
       ${EXTERNAL_LIBRARY_FOLDER}/${ANDROID_ABI}/libusb/lib/libunrooted_android.so
       ${EXTERNAL_LIBRARY_FOLDER}/${ANDROID_ABI}/libusb/lib/libusb1.0.so
+      ${EXTERNAL_LIBRARY_FOLDER}/${ANDROID_ABI}/cm256cc/lib/libcm256cc.so
       ${EXTERNAL_LIBRARY_FOLDER}/${ANDROID_ABI}/flac/lib/libFLAC.so
+      ${EXTERNAL_LIBRARY_FOLDER}/${ANDROID_ABI}/inmarsatc/lib/libinmarsatc_decoder.so
+      ${EXTERNAL_LIBRARY_FOLDER}/${ANDROID_ABI}/inmarsatc/lib/libinmarsatc_parser.so
+      ${Qt6_DIR}/../../../lib/libQt6Sql_${ANDROID_ABI}.so
+      ${Qt6_DIR}/../../../lib/libQt6SerialPort_${ANDROID_ABI}.so
+      ${Qt6_DIR}/../../../lib/libQt6Charts_${ANDROID_ABI}.so
+      ${Qt6_DIR}/../../../lib/libQt6Positioning_${ANDROID_ABI}.so
+      ${Qt6_DIR}/../../../lib/libQt6PositioningQuick_${ANDROID_ABI}.so
+      ${Qt6_DIR}/../../../lib/libQt6Location_${ANDROID_ABI}.so
+      ${Qt6_DIR}/../../../lib/libQt6Concurrent_${ANDROID_ABI}.so
+      ${Qt6_DIR}/../../../lib/libQt6MultimediaWidgets_${ANDROID_ABI}.so
+      ${Qt6_DIR}/../../../lib/libQt6TextToSpeech_${ANDROID_ABI}.so
+      ${Qt6_DIR}/../../../lib/libQt6QuickWidgets_${ANDROID_ABI}.so
+      ${Qt6_DIR}/../../../lib/libQt6QuickControls2_${ANDROID_ABI}.so
+      ${Qt6_DIR}/../../../lib/libQt6QuickWidgets_${ANDROID_ABI}.so
+      ${Qt6_DIR}/../../../lib/libQt6QuickTemplates2_${ANDROID_ABI}.so
+      ${Qt6_DIR}/../../../lib/libQt6QuickShapes_${ANDROID_ABI}.so
+      ${Qt6_DIR}/../../../lib/libQt6SvgWidgets_${ANDROID_ABI}.so
+      ${Qt6_DIR}/../../../plugins/sqldrivers/libplugins_sqldrivers_qsqlite_${ANDROID_ABI}.so
+      ${Qt6_DIR}/../../../plugins/geoservices/libplugins_geoservices_qtgeoservices_osm_${ANDROID_ABI}.so
+      ${Qt6_DIR}/../../../plugins/tls/libplugins_tls_qopensslbackend_${ANDROID_ABI}.so
+      ${Qt6_DIR}/../../../plugins/tls/libplugins_tls_qcertonlybackend_${ANDROID_ABI}.so
+      ${CMAKE_BINARY_DIR}/lib/libft8.so
+      ${CMAKE_BINARY_DIR}/lib/libmetisdevice.so
+      ${CMAKE_BINARY_DIR}/lib/libmodemm17.so
+      ${CMAKE_BINARY_DIR}/lib/libmodemmeshtastic.so
+      ${CMAKE_BINARY_DIR}/lib/libwdsp.so
       CACHE INTERNAL ""
     )
   else()
@@ -656,6 +766,10 @@ elseif(ANDROID)
     )
   endif()
   add_compile_definitions(ANDROID)
+elseif(UNIX)
+  set(CMAKE_FIND_ROOT_PATH "/usr/local")
+  include_directories("/usr/local/include")
+  link_directories("/usr/local/lib")
 endif()
 
 # When building a bundle on MacOS, we want to keep build paths in the library
@@ -866,7 +980,9 @@ elseif(ENABLE_EXTERNAL_LIBRARIES STREQUAL "AUTO")
 endif()
 
 if (NOT ENABLE_EXTERNAL_LIBRARIES OR (ENABLE_EXTERNAL_LIBRARIES STREQUAL "AUTO"))
+    if (NOT OpenCV_FOUND)
     find_package(OpenCV OPTIONAL_COMPONENTS core highgui imgproc imgcodecs videoio) # channeltx/modatv
+    endif()
     find_package(LibSigMF) # SigMF recording files support
     find_package(ZLIB) # For DAB
     find_package(FAAD) # For DAB
@@ -876,6 +992,7 @@ if (NOT ENABLE_EXTERNAL_LIBRARIES OR (ENABLE_EXTERNAL_LIBRARIES STREQUAL "AUTO")
     find_package(SerialDV)
     find_package(LibDSDcc)
     find_package(Sgp4)
+    find_package(CSPICE)
     find_package(AptDec)
     find_package(LibDAB)
     find_package(HIDAPI)
@@ -883,6 +1000,7 @@ if (NOT ENABLE_EXTERNAL_LIBRARIES OR (ENABLE_EXTERNAL_LIBRARIES STREQUAL "AUTO")
     find_package(GGMorse)
     find_package(LibInmarsatC)
     find_package(RNnoise)
+    find_package(FLAC)
 
     # Devices
     if(ENABLE_AIRSPY)
@@ -954,6 +1072,8 @@ add_subdirectory(swagger)
 add_subdirectory(devices)
 
 add_subdirectory(modemm17)
+add_subdirectory(modemmeshtastic)
+add_subdirectory(modemmeshcore)
 
 if (FFTW3F_FOUND)
     add_subdirectory(ft8)
