@@ -416,20 +416,20 @@ void ATVModSource::pullVideo(Real& sample)
             		if (!grabOK) break;
             	}
 
-            	if (grabOK)
-            	{
-            		cv::Mat colorFrame;
-            		m_video.retrieve(colorFrame);
+                if (grabOK)
+                {
+                    cv::Mat colorFrame;
+                    m_video.retrieve(colorFrame);
 
-            		if (!colorFrame.empty()) // some frames may not come out properly
-            		{
-            		    if (m_settings.m_showOverlayText) {
-            		        mixImageAndText(colorFrame);
-            		    }
+                    if (!colorFrame.empty()) // some frames may not come out properly
+                    {
+                        if (m_settings.m_showOverlayText) {
+                            mixImageAndText(colorFrame);
+                        }
 
-            		    m_videoframeOriginal = colorFrame;
-            		    resizeVideo();
-            		}
+                        m_videoframeOriginal = colorFrame;
+                        resizeVideo();
+                    }
             	}
             	else
             	{

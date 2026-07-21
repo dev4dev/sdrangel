@@ -21,6 +21,7 @@
 
 #include <cmath>
 #include <cstdio>
+#include <algorithm>
 #include "dsp/dsptypes.h"
 #include "export.h"
 

@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include <complex.h>
+#include <algorithm>
 
 #include <QTime>
 #include <QDebug>
@@ -482,10 +483,16 @@ void ATVMod::webapiUpdateChannelSettings(
         settings.m_colourEnabled = response.getAtvModSettings()->getColourEnabled() != 0;
     }
     if (channelSettingsKeys.contains("colourStd")) {
-        settings.m_colourStd = (ATVModSettings::ATVColourStd) response.getAtvModSettings()->getColourStd();
+        int colourStd = response.getAtvModSettings()->getColourStd();
+
+        if ((colourStd < (int) ATVModSettings::ATVColourPAL) || (colourStd > (int) ATVModSettings::ATVColourNTSC)) {
+            settings.m_colourStd = ATVModSettings::ATVColourPAL;
+        } else {
+            settings.m_colourStd = (ATVModSettings::ATVColourStd) colourStd;
+        }
     }
     if (channelSettingsKeys.contains("colourSubcarrierLevel")) {
-        settings.m_colourSubcarrierLevel = response.getAtvModSettings()->getColourSubcarrierLevel();
+        settings.m_colourSubcarrierLevel = std::clamp(response.getAtvModSettings()->getColourSubcarrierLevel(), 0.0f, 1.0f);
     }
     if (settings.m_channelMarker && channelSettingsKeys.contains("channelMarker")) {
         settings.m_channelMarker->updateFrom(channelSettingsKeys, response.getAtvModSettings()->getChannelMarker());

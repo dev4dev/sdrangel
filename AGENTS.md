@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to coding agents working in this repository.
 
 ## What is SDRangel
 
@@ -11,6 +11,8 @@ Current version: **7.23.2**. C++17, CMake build system.
 ## Build
 
 CMake presets are defined in `CMakePresets.json`. The default preset targets Linux with dependencies under `/opt/install/`.
+
+There is no macOS preset. Do not use `default` or `default-qt6` unchanged on macOS because they inherit Linux-specific `/opt/install/` dependency paths.
 
 ### Linux (Qt5)
 
@@ -33,24 +35,34 @@ cmake --build --preset default-qt6 -j$(nproc)
 
 ```bash
 # Install core dependencies
-brew install qt boost fftw libusb pkg-config opencv ffmpeg
+brew install qt boost fftw libusb pkg-config opencv ffmpeg flac opus ninja
 
-# Configure (Qt6, Apple Silicon)
-cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+# Configure a fresh build (Qt6, Apple Silicon)
+cmake -S . -B build-macos -G Ninja \
+  -DCMAKE_BUILD_TYPE=RelWithDebInfo \
   -DENABLE_QT6=ON \
   -DCMAKE_PREFIX_PATH="$(brew --prefix qt)" \
-  -DFLAC_INCLUDE_DIR=/opt/homebrew/include \
-  -DFLAC_LIBRARIES=/opt/homebrew/lib/libFLAC.dylib \
+  -DFLAC_INCLUDE_DIR="$(brew --prefix flac)/include" \
+  -DFLAC_LIBRARIES="$(brew --prefix flac)/lib/libFLAC.dylib" \
   -DDEBUG_OUTPUT=ON
 
 # Build
-cmake --build build -j$(sysctl -n hw.ncpu)
+cmake --build build-macos --parallel "$(sysctl -n hw.ncpu)"
 
 # Run from build tree (no install needed for testing)
-./build/sdrangel
+./build-macos/sdrangel
 ```
 
 **Known issue:** `FindFLAC.cmake` doesn't search `/opt/homebrew/include` (Apple Silicon path), so `FLAC_INCLUDE_DIR` and `FLAC_LIBRARIES` must be passed explicitly or the `remotetcpsink` plugin fails.
+
+Use a fresh build directory after Homebrew upgrades. CMake caches versioned paths under `/opt/homebrew/Cellar`, so an older build tree can retain paths to libraries that `brew cleanup` has removed. Missing optional codec and hardware SDKs are reported during configuration and their corresponding plugins are skipped automatically.
+
+To verify the non-GUI executables without starting a service or benchmark:
+
+```bash
+./build-macos/sdrangelsrv --version
+./build-macos/sdrangelbench --version
+```
 
 #### Full build with .dmg packaging (from [wiki](https://github.com/f4exb/sdrangel/wiki/Compile-in-MacOS))
 
@@ -80,17 +92,16 @@ Key flags: `-DBUNDLE=ON` creates .dmg, `-DENABLE_EXTERNAL_LIBRARIES=ON` auto-bui
 If using Homebrew dependencies instead of `ENABLE_EXTERNAL_LIBRARIES`, you must pass FLAC paths explicitly:
 
 ```bash
-brew install qt boost fftw libusb pkg-config opencv ffmpeg flac
+brew install qt boost fftw libusb pkg-config opencv ffmpeg flac opus
 
 cmake -B build-release -DCMAKE_BUILD_TYPE=Release \
   -DBUNDLE=ON -DENABLE_QT6=ON -DRX_SAMPLE_24BIT=ON \
-  -DCMAKE_PREFIX_PATH=/opt/homebrew/opt/qt \
-  -DFLAC_INCLUDE_DIR=/opt/homebrew/include \
-  -DFLAC_LIBRARIES=/opt/homebrew/lib/libFLAC.dylib \
+  -DCMAKE_PREFIX_PATH="$(brew --prefix qt)" \
+  -DFLAC_INCLUDE_DIR="$(brew --prefix flac)/include" \
+  -DFLAC_LIBRARIES="$(brew --prefix flac)/lib/libFLAC.dylib" \
   -DARCH_OPT=native
 
-cmake --build build-release -j$(sysctl -n hw.ncpu)
-cd build-release && cpack  # produces .dmg
+cmake --build build-release --target package --parallel "$(sysctl -n hw.ncpu)"  # produces .dmg
 ```
 
 **FLAC is required for all macOS builds** (both dev and release). The `remotetcpsink` plugin needs `FLAC/stream_encoder.h`. On Apple Silicon, Homebrew installs to `/opt/homebrew/` which CMake's `FindFLAC` doesn't search, so `-DFLAC_INCLUDE_DIR` and `-DFLAC_LIBRARIES` must always be passed explicitly.
@@ -98,11 +109,11 @@ cd build-release && cpack  # produces .dmg
 #### Build a single plugin (faster iteration)
 
 ```bash
-cmake --build build --target modatv -j$(sysctl -n hw.ncpu)     # GUI plugin
-cmake --build build --target modatvsrv -j$(sysctl -n hw.ncpu)  # server plugin
+cmake --build build-macos --target modatv --parallel "$(sysctl -n hw.ncpu)"     # GUI plugin
+cmake --build build-macos --target modatvsrv --parallel "$(sysctl -n hw.ncpu)"  # server plugin
 ```
 
-Plugins are built to `build/lib/plugins/` (GUI) and `build/lib/pluginssrv/` (server).
+Plugins are built to `build-macos/lib/plugins/` (GUI) and `build-macos/lib/pluginssrv/` (server).
 
 ### Windows
 
@@ -123,7 +134,7 @@ External dependencies are pointed to via `CMakePresets.json` cache variables (`A
 
 ### Dependencies
 
-**Required:** Qt5 (≥5.15) or Qt6, Boost, FFTW3 (float), libusb, OpenGL, pkg-config
+**Required:** Qt5 (≥5.15) or Qt6, Boost, FFTW3 (float), libusb, Opus, OpenGL, pkg-config
 
 **Required for ATVMod plugin:** OpenCV (core, highgui, imgproc, imgcodecs, videoio)
 

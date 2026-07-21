@@ -16,6 +16,8 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.          //
 ///////////////////////////////////////////////////////////////////////////////////
 
+#include <algorithm>
+
 #include <QColor>
 
 #include "util/simpleserializer.h"
@@ -186,9 +188,15 @@ bool ATVModSettings::deserialize(const QByteArray& data)
         d.readBool(28, &m_hidden, false);
         d.readBool(29, &m_colourEnabled, false);
         d.readS32(30, &tmp, 0);
-        m_colourStd = (ATVColourStd) tmp;
+
+        if ((tmp < (int) ATVColourPAL) || (tmp > (int) ATVColourNTSC)) {
+            m_colourStd = ATVColourPAL;
+        } else {
+            m_colourStd = (ATVColourStd) tmp;
+        }
+
         d.readS32(31, &tmp, 100);
-        m_colourSubcarrierLevel = tmp / 100.0f;
+        m_colourSubcarrierLevel = std::clamp(tmp / 100.0f, 0.0f, 1.0f);
 
         return true;
     }
@@ -301,10 +309,16 @@ void ATVModSettings::applySettings(const QStringList& settingsKeys, const ATVMod
         m_colourEnabled = settings.m_colourEnabled;
     }
     if (settingsKeys.contains("colourStd")) {
-        m_colourStd = settings.m_colourStd;
+        int colourStd = (int) settings.m_colourStd;
+
+        if ((colourStd < (int) ATVColourPAL) || (colourStd > (int) ATVColourNTSC)) {
+            m_colourStd = ATVColourPAL;
+        } else {
+            m_colourStd = settings.m_colourStd;
+        }
     }
     if (settingsKeys.contains("colourSubcarrierLevel")) {
-        m_colourSubcarrierLevel = settings.m_colourSubcarrierLevel;
+        m_colourSubcarrierLevel = std::clamp(settings.m_colourSubcarrierLevel, 0.0f, 1.0f);
     }
 }
 
